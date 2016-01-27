@@ -1,6 +1,9 @@
 import pygame
 from enum import Enum
 import math
+import datetime
+import time
+from collections import deque
 
 """
 Tilemap:
@@ -27,8 +30,6 @@ UP_SIMPLE_WALL = 19
 FULL_WALL = 20
 """
 Terrain_tiles = [pygame.image.load("assets/terrain/big_dot_sprite.png"), pygame.image.load("assets/terrain/blank_tile.png"), pygame.image.load("assets/terrain/dot_sprite.png"), pygame.image.load("assets/terrain/down_double_wall.png"), pygame.image.load("assets/terrain/down_left_angled_corner.png"), pygame.image.load("assets/terrain/down_left_smooth_corner.png"), pygame.image.load("assets/terrain/down_right_angled_corner.png"), pygame.image.load("assets/terrain/down_right_smooth_corner.png"), pygame.image.load("assets/terrain/down_simple_wall.png"), pygame.image.load("assets/terrain/ghost_spawn_barrier.png"), pygame.image.load("assets/terrain/left_double_wall.png"), pygame.image.load("assets/terrain/left_simple_wall.png"), pygame.image.load("assets/terrain/right_double_wall.png"), pygame.image.load("assets/terrain/right_simple_wall.png"), pygame.image.load("assets/terrain/up_double_wall.png"), pygame.image.load("assets/terrain/up_left_angled_corner.png"), pygame.image.load("assets/terrain/up_left_smooth_corner.png"), pygame.image.load("assets/terrain/up_right_angled_corner.png"), pygame.image.load("assets/terrain/up_right_smooth_corner.png"), pygame.image.load("assets/terrain/up_simple_wall.png"), pygame.image.load("assets/terrain/full_wall.png")]
-
-
 
 class Direction(Enum):
     NONE = 0
@@ -64,9 +65,8 @@ class Board:
         tile_surface = pygame.transform.scale(sprite, (self.tile_width, self.tile_height))
         self.screen.blit(tile_surface, (x * self.tile_width + self.start_x , self.tile_height * y))
 
-    def blit(self, sprite):
+    def blit_surroundings(self, sprite):
         tile_pos = sprite.get_curr_tile(self)
-        print("Sprite is in position %s" % (tile_pos, ))
         x = tile_pos[0]
         y = tile_pos[1]
         self.blit_tile(self.tiles[x][y], x, y)
@@ -78,25 +78,52 @@ class Board:
         self.blit_tile(self.tiles[x + 1][y - 1], x + 1, y - 1)
         self.blit_tile(self.tiles[x - 1][y + 1], x - 1, y + 1)
         self.blit_tile(self.tiles[x + 1][y + 1], x + 1, y + 1)
+        self.blit_tile(self.tiles[x - 2][y], x - 2, y)
+        self.blit_tile(self.tiles[x + 2][y], x + 2, y)
+        self.blit_tile(self.tiles[x][y - 2], x, y - 2)
+        self.blit_tile(self.tiles[x][y + 2], x, y + 2)
+        self.blit_tile(self.tiles[x - 2][y - 2], x - 2, y - 2)
+        self.blit_tile(self.tiles[x + 2][y - 2], x + 2, y - 2)
+        self.blit_tile(self.tiles[x - 2][y + 2], x - 2, y + 2)
+        self.blit_tile(self.tiles[x + 2][y + 2], x + 2, y + 2)
+
+    def blit(self, sprite):
         sprite_surface = pygame.transform.scale(sprite.current_sprite(), (self.tile_width, self.tile_height))
         self.screen.blit(sprite_surface, (sprite.x, sprite.y))
 
     def is_wall(self, x, y):
-        tile = self.tilemap[x][y]
+        tile = self.tiles[x][y]
         return tile != Terrain_tiles[0] and tile != Terrain_tiles[1] and tile != Terrain_tiles[2]
 
+    def grid_to_abs(self, x, y):
+        nx = x * self.tile_width + self.start_x
+        ny = y * self.tile_height
+        return (nx, ny)
+
 class PlayableSprite:
-    speed = 4
+    speed = 20
+
     direction = Direction.NONE
+
     base_image = None
     none_sprite = None
     up_sprite = None
     right_sprite = None
     down_sprite = None
     left_sprite = None
-    rect = pygame.Rect((15, 15), (15, 15))
+
+    # Logic position
+    real_x = 0
+    real_y = 0
+
+    # Position in surface
     x = 0
     y = 0
+
+    lastinput = datetime.datetime.now()
+
+    def __init__(self):
+        self.event_queue = deque([])
 
     def current_sprite(self):
         if(self.direction == Direction.NONE):
@@ -114,6 +141,8 @@ class PlayableSprite:
         board.blit_tile(self.none_sprite, x, y)
         self.x = board.start_x + x * board.tile_width
         self.y = y * board.tile_height
+        self.real_x = self.x
+        self.real_y = self.y
         self.board = board
 
     def get_curr_tile(self, board):
@@ -121,25 +150,101 @@ class PlayableSprite:
         y_tile = self.y / board.tile_height
         return (x_tile, y_tile)
 
-    def update(self, i):
-        if(i == UP):
-            self.direction = Direction.UP
-            self.y -= self.speed
-        elif(i == RIGHT):
-            self.direction = Direction.RIGHT
-            self.x += self.speed
-        elif(i == DOWN):
-            self.direction = Direction.DOWN
-            self.y += self.speed
-        elif(i == LEFT):
-            self.direction = Direction.LEFT
-            self.x -= self.speed
+    def decrease_speed(self):
+        self.speed -= 0.2
+        if(self.speed < 0):
+            self.speed = 0
+
+    def increase_speed(self):
+        self.speed += 5
+        if(self.speed > 40):
+            self.speed = 40
+
+    def queue_event(self, event):
+        print("Queuing event %s" % event)
+        self.event_queue.append((event, 10))
+
+    def update(self, board):
+        if(self.direction == Direction.UP and self.can_go_up(board)):
+            self.real_y -= self.speed / 60
+        elif(self.direction == Direction.RIGHT and self.can_go_right(board)):
+            self.real_x += self.speed / 60
+        elif(self.direction == Direction.DOWN and self.can_go_down(board)):
+            self.real_y += self.speed / 60
+        elif(self.direction == Direction.LEFT and self.can_go_left(board)):
+            self.real_x -= self.speed / 60
+        self.x = self.real_x // 1
+        self.y = self.real_y // 1
+        for i in range(0, len(self.event_queue)):
+            evt = self.event_queue.popleft()
+            print("Event %s" % (evt, ))
+            if(evt[0] == self.direction):
+                continue
+            tm = evt[1]
+            direction = evt[0]
+            if(direction == UP):
+                if(self.can_go_up(board)):
+                    self.direction = Direction.UP
+            elif(direction == DOWN):
+                if(self.can_go_down(board)):
+                    self.direction = Direction.DOWN
+            elif(direction == LEFT):
+                if(self.can_go_left(board)):
+                    self.direction = Direction.LEFT
+            elif(direction == RIGHT):
+                if(self.can_go_right(board)):
+                    self.direction = Direction.RIGHT
+            evt = (evt[0], tm - 1)
+            if(evt[1] == 0):
+                continue
+            self.event_queue.append(evt)
+
+    def can_go_up(self, board):
+        curr_tile = self.get_curr_tile(board)
+        if(not board.is_wall(curr_tile[0], curr_tile[1] - 1)):
+            return True
+        maxy = board.grid_to_abs(curr_tile[0], curr_tile[1])
+        if(self.y != maxy[1]):
+            return True
+        return False
+
+    def can_go_left(self, board):
+        curr_tile = self.get_curr_tile(board)
+        if(not board.is_wall(curr_tile[0] - 1, curr_tile[1])):
+            return True
+        maxx = board.grid_to_abs(curr_tile[0] - 1, curr_tile[1])
+        if(self.x != maxx[0]):
+            return True
+        return False
+
+    def can_go_right(self, board):
+        curr_tile = self.get_curr_tile(board)
+        if(not board.is_wall(curr_tile[0] + 1, curr_tile[1])):
+            return True
+        maxx = board.grid_to_abs(curr_tile[0] + 1, curr_tile[1])
+        currx = self.x + board.tile_width - 1
+        if(currx != maxx[0]):
+            return True
+        return False
+
+    def can_go_down(self, board):
+        curr_tile = self.get_curr_tile(board)
+        print("Tile coordinates = %s" % (curr_tile,))
+        if(not board.is_wall(curr_tile[0] + 1, curr_tile[1])):
+            return True
+        maxy = board.grid_to_abs(curr_tile[0] + 1, curr_tile[1])
+        curry = self.y + board.tile_height
+        if(curry != maxy[1]):
+            return True
+        return False
 
 class Ghost(PlayableSprite):
     """Ghost base class"""
+    vulnerable = False
     vulnerable_sprite = pygame.image.load("assets/vulnerable_ghost.png")
 
     def __init__(self, path):
+        self.event_queue = deque([])
         self.base_image = pygame.image.load(path)
         sprite_surface = (self.base_image.get_width() // 2, self.base_image.get_height() // 2)
 
@@ -209,6 +314,7 @@ def main():
     guz_pos = guzuta.get_curr_tile(board)
 
     while True:
+        tick = datetime.datetime.now()
         for event in pygame.event.get():
             if event.type != pygame.KEYDOWN:
                 continue
@@ -217,10 +323,27 @@ def main():
             for i in range(0, 4):
                 for j in range(0, 4):
                     if event.key == player_mappings[i][j]:
-                        player_entities[i].update(j)
+                        print("Throwing event for player %s: %s" % (i, j))
+                        player_entities[i].increase_speed()
+                        player_entities[i].queue_event(j)
+        for i in range(0, 4):
+            player_entities[i].decrease_speed()
+            player_entities[i].update(board)
+        for i in range(0, 4):
+            board.blit_surroundings(player_entities[i])
         for i in range(0, 4):
             board.blit(player_entities[i])
         pygame.display.flip()
+        ntick = datetime.datetime.now()
+        tckdiff = ntick - tick
+        tick = ntick
+        rendr_time = tckdiff.microseconds // 1000
+        print("Frame computed in %s milliseconds" % rendr_time)
+        wait = (tick_rate - rendr_time) / 1000
+        if(wait > 0):
+            time.sleep(wait)
+
+tick_rate = 16.667
 
 UP = 0
 RIGHT = 1
