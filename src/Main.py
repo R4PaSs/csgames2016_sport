@@ -66,11 +66,20 @@ class Board:
 
     def blit(self, sprite):
         tile_pos = sprite.get_curr_tile(self)
-        self.blit_tile(self.tiles[tile_pos[0] - 1][tile_pos[1]], tile_pos[0] - 1, tile_pos[1])
-        self.blit_tile(self.tiles[tile_pos[0] + 1][tile_pos[1]], tile_pos[0] - 1, tile_pos[1])
-        self.blit_tile(self.tiles[tile_pos[0]][tile_pos[1] - 1], tile_pos[0], tile_pos[1] - 1)
-        self.blit_tile(self.tiles[tile_pos[0]][tile_pos[1] + 1], tile_pos[0], tile_pos[1] + 1)
-        self.blit_tile(self.tiles[tile_pos[0]][tile_pos[1]], tile_pos[0], tile_pos[1])
+        print("Sprite is in position %s" % (tile_pos, ))
+        x = tile_pos[0]
+        y = tile_pos[1]
+        self.blit_tile(self.tiles[x][y], x, y)
+        self.blit_tile(self.tiles[x - 1][y], x - 1, y)
+        self.blit_tile(self.tiles[x + 1][y], x + 1, y)
+        self.blit_tile(self.tiles[x][y - 1], x, y - 1)
+        self.blit_tile(self.tiles[x][y + 1], x, y + 1)
+        self.blit_tile(self.tiles[x - 1][y - 1], x - 1, y - 1)
+        self.blit_tile(self.tiles[x + 1][y - 1], x + 1, y - 1)
+        self.blit_tile(self.tiles[x - 1][y + 1], x - 1, y + 1)
+        self.blit_tile(self.tiles[x + 1][y + 1], x + 1, y + 1)
+        sprite_surface = pygame.transform.scale(sprite.current_sprite(), (self.tile_width, self.tile_height))
+        self.screen.blit(sprite_surface, (sprite.x, sprite.y))
 
     def is_wall(self, x, y):
         tile = self.tilemap[x][y]
@@ -89,6 +98,18 @@ class PlayableSprite:
     x = 0
     y = 0
 
+    def current_sprite(self):
+        if(self.direction == Direction.NONE):
+            return self.none_sprite
+        elif(self.direction == Direction.UP):
+            return self.up_sprite
+        elif(self.direction == Direction.DOWN):
+            return self.down_sprite
+        elif(self.direction == Direction.LEFT):
+            return self.left_sprite
+        elif(self.direction == Direction.RIGHT):
+            return self.right_sprite
+
     def spawn(self, board, x, y):
         board.blit_tile(self.none_sprite, x, y)
         self.x = board.start_x + x * board.tile_width
@@ -101,18 +122,17 @@ class PlayableSprite:
         return (x_tile, y_tile)
 
     def update(self, i):
-        print("Got signal %s" % i)
         if(i == UP):
-            print("Moving up")
+            self.direction = Direction.UP
             self.y -= self.speed
         elif(i == RIGHT):
-            print("Moving right")
+            self.direction = Direction.RIGHT
             self.x += self.speed
         elif(i == DOWN):
-            print("Moving down")
+            self.direction = Direction.DOWN
             self.y += self.speed
         elif(i == LEFT):
-            print("Moving left")
+            self.direction = Direction.LEFT
             self.x -= self.speed
 
 class Ghost(PlayableSprite):
@@ -121,14 +141,20 @@ class Ghost(PlayableSprite):
 
     def __init__(self, path):
         self.base_image = pygame.image.load(path)
-        self.up_sprite = pygame.Surface((self.base_image.get_width() / 2, self.base_image.get_height() / 2))
-        self.up_sprite.blit(self.base_image, pygame.Rect((0, 0), (self.base_image.get_width() / 2, self.base_image.get_height() / 2)))
-        self.right_sprite = pygame.Surface((self.base_image.get_width() / 2, self.base_image.get_height() / 2))
-        self.up_sprite.blit(self.base_image, pygame.Rect((self.base_image.get_width() / 2, 0), (self.base_image.get_width() / 2, self.base_image.get_height() / 2)))
-        self.down_sprite = pygame.Surface((self.base_image.get_width() / 2, self.base_image.get_height() / 2))
-        self.up_sprite.blit(self.base_image, pygame.Rect((0, self.base_image.get_height() / 2), (self.base_image.get_width() / 2, self.base_image.get_height() / 2)))
-        self.left_sprite = pygame.Surface((self.base_image.get_width() / 2, self.base_image.get_height() / 2))
-        self.up_sprite.blit(self.base_image, pygame.Rect((self.base_image.get_width() / 2, self.base_image.get_height() / 2), (self.base_image.get_width() / 2, self.base_image.get_height() / 2)))
+        sprite_surface = (self.base_image.get_width() // 2, self.base_image.get_height() // 2)
+
+        sprite_base = pygame.Rect((0, 0), sprite_surface)
+        self.up_sprite = self.base_image.subsurface(sprite_base)
+
+        sprite_base = pygame.Rect((self.base_image.get_width() // 2, 0), sprite_surface)
+        self.right_sprite = self.base_image.subsurface(sprite_base)
+
+        sprite_base = pygame.Rect((0, self.base_image.get_height() // 2), sprite_surface)
+        self.down_sprite = self.base_image.subsurface(sprite_base)
+
+        sprite_base = pygame.Rect((self.base_image.get_width() // 2, self.base_image.get_height() // 2), sprite_surface)
+        self.left_sprite = self.base_image.subsurface(sprite_base)
+
         self.none_sprite = self.up_sprite
 
 class Pacman(PlayableSprite):
@@ -164,10 +190,10 @@ def main():
 
     player_entities = [akabe, pinky, aosuke, guzuta]
     player_mappings = [
+            [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
             [pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a],
             [pygame.K_t, pygame.K_h, pygame.K_g, pygame.K_f],
-            [pygame.K_i, pygame.K_l, pygame.K_k, pygame.K_j],
-            [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
+            [pygame.K_i, pygame.K_l, pygame.K_k, pygame.K_j]
             ]
 
     akabe.spawn(board, 13, 10)
@@ -182,10 +208,6 @@ def main():
     ao_pos = aosuke.get_curr_tile(board)
     guz_pos = guzuta.get_curr_tile(board)
 
-    print("Position of akabe = %s" % (aka_pos, ))
-    print("Position of pinky = %s" % (pink_pos, ))
-    print("Position of aosuke = %s" % (ao_pos, ))
-    print("Position of guzuta = %s" % (guz_pos, ))
     while True:
         for event in pygame.event.get():
             if event.type != pygame.KEYDOWN:
@@ -198,6 +220,7 @@ def main():
                         player_entities[i].update(j)
         for i in range(0, 4):
             board.blit(player_entities[i])
+        pygame.display.flip()
 
 UP = 0
 RIGHT = 1
