@@ -146,22 +146,22 @@ class PlayableSprite:
         self.board = board
 
     def get_curr_tile(self, board):
-        x_tile = (self.x - board.start_x) / board.tile_width
-        y_tile = self.y / board.tile_height
+        x_tile = int((self.x - board.start_x) // board.tile_width)
+        y_tile = int(self.y // board.tile_height)
         return (x_tile, y_tile)
 
     def decrease_speed(self):
-        self.speed -= 0.2
+        self.speed -= 0.5
         if(self.speed < 0):
             self.speed = 0
 
     def increase_speed(self):
         self.speed += 5
-        if(self.speed > 40):
-            self.speed = 40
+        if(self.speed > max_speed):
+            self.speed = max_speed
 
     def queue_event(self, event):
-        print("Queuing event %s" % event)
+        #print("Queuing event %s" % event)
         self.event_queue.append((event, 10))
 
     def update(self, board):
@@ -173,11 +173,11 @@ class PlayableSprite:
             self.real_y += self.speed / 60
         elif(self.direction == Direction.LEFT and self.can_go_left(board)):
             self.real_x -= self.speed / 60
-        self.x = self.real_x // 1
-        self.y = self.real_y // 1
+        self.x = int(self.real_x // 1)
+        self.y = int(self.real_y // 1)
         for i in range(0, len(self.event_queue)):
             evt = self.event_queue.popleft()
-            print("Event %s" % (evt, ))
+            #print("Event %s" % (evt, ))
             if(evt[0] == self.direction):
                 continue
             tm = evt[1]
@@ -204,7 +204,8 @@ class PlayableSprite:
         if(not board.is_wall(curr_tile[0], curr_tile[1] - 1)):
             return True
         maxy = board.grid_to_abs(curr_tile[0], curr_tile[1])
-        if(self.y != maxy[1]):
+        minx = curr_tile[0] * board.tile_width + board.start_x
+        if(self.y != maxy[1] and self.x == minx):
             return True
         return False
 
@@ -212,13 +213,16 @@ class PlayableSprite:
         curr_tile = self.get_curr_tile(board)
         if(not board.is_wall(curr_tile[0] - 1, curr_tile[1])):
             return True
-        maxx = board.grid_to_abs(curr_tile[0] - 1, curr_tile[1])
-        if(self.x != maxx[0]):
-            return True
-        return False
+        maxx = board.grid_to_abs(curr_tile[0], curr_tile[1])
+        if(self.x == maxx[0]):
+            return False
+        if(self.y != maxx[1]):
+            return False
+        return True
 
     def can_go_right(self, board):
         curr_tile = self.get_curr_tile(board)
+        #print("Tile position is %s" % (curr_tile, ))
         if(not board.is_wall(curr_tile[0] + 1, curr_tile[1])):
             return True
         maxx = board.grid_to_abs(curr_tile[0] + 1, curr_tile[1])
@@ -229,10 +233,10 @@ class PlayableSprite:
 
     def can_go_down(self, board):
         curr_tile = self.get_curr_tile(board)
-        print("Tile coordinates = %s" % (curr_tile,))
-        if(not board.is_wall(curr_tile[0] + 1, curr_tile[1])):
+        #print("Tile coordinates = %s" % (curr_tile,))
+        if(not board.is_wall(curr_tile[0], curr_tile[1] + 1)):
             return True
-        maxy = board.grid_to_abs(curr_tile[0] + 1, curr_tile[1])
+        maxy = board.grid_to_abs(curr_tile[0], curr_tile[1] + 1)
         curry = self.y + board.tile_height
         if(curry != maxy[1]):
             return True
@@ -323,7 +327,7 @@ def main():
             for i in range(0, 4):
                 for j in range(0, 4):
                     if event.key == player_mappings[i][j]:
-                        print("Throwing event for player %s: %s" % (i, j))
+                        #print("Throwing event for player %s: %s" % (i, j))
                         player_entities[i].increase_speed()
                         player_entities[i].queue_event(j)
         for i in range(0, 4):
@@ -338,11 +342,12 @@ def main():
         tckdiff = ntick - tick
         tick = ntick
         rendr_time = tckdiff.microseconds // 1000
-        print("Frame computed in %s milliseconds" % rendr_time)
+        #print("Frame computed in %s milliseconds" % rendr_time)
         wait = (tick_rate - rendr_time) / 1000
         if(wait > 0):
             time.sleep(wait)
 
+max_speed = 60
 tick_rate = 16.667
 
 UP = 0
