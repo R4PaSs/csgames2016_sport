@@ -166,12 +166,28 @@ class PlayableSprite:
     def update(self, board):
         if(self.direction == Direction.UP and self.can_go_up(board)):
             self.real_y -= self.speed / 60
+            new_tile = self.get_curr_tile(board)
+            if(board.is_wall(new_tile[0], new_tile[1])):
+                coords = board.grid_to_abs(new_tile[0], new_tile[1] + 1)
+                self.real_y = coords[1]
         elif(self.direction == Direction.RIGHT and self.can_go_right(board)):
             self.real_x += self.speed / 60
+            new_tile = self.get_curr_tile(board)
+            if(board.is_wall(new_tile[0], new_tile[1])):
+                coords = board.grid_to_abs(new_tile[0] - 1, new_tile[1])
+                self.real_x = coords[0]
         elif(self.direction == Direction.DOWN and self.can_go_down(board)):
             self.real_y += self.speed / 60
+            new_tile = self.get_curr_tile(board)
+            if(board.is_wall(new_tile[0], new_tile[1])):
+                coords = board.grid_to_abs(new_tile[0], new_tile[1] - 1)
+                self.real_y = coords[1]
         elif(self.direction == Direction.LEFT and self.can_go_left(board)):
             self.real_x -= self.speed / 60
+            new_tile = self.get_curr_tile(board)
+            if(board.is_wall(new_tile[0], new_tile[1])):
+                coords = board.grid_to_abs(new_tile[0] + 1, new_tile[1])
+                self.real_x = coords[0]
         self.x = int(self.real_x // 1)
         self.y = int(self.real_y // 1)
         for i in range(0, len(self.event_queue)):
@@ -307,14 +323,14 @@ class Pacman(PlayableSprite):
         self.left_anim.append(self.base_image.subsurface(sprite_base))
 
         sprite_base = pygame.Rect((0, height), sprite_surface)
-        self.right_anim.append(self.base_image.subsurface(sprite_base))
+        self.up_anim.append(self.base_image.subsurface(sprite_base))
         sprite_base = pygame.Rect((width, height), sprite_surface)
-        self.right_anim.append(self.base_image.subsurface(sprite_base))
+        self.up_anim.append(self.base_image.subsurface(sprite_base))
 
         sprite_base = pygame.Rect((0, height * 2), sprite_surface)
-        self.up_anim.append(self.base_image.subsurface(sprite_base))
+        self.right_anim.append(self.base_image.subsurface(sprite_base))
         sprite_base = pygame.Rect((width, height * 2), sprite_surface)
-        self.up_anim.append(self.base_image.subsurface(sprite_base))
+        self.right_anim.append(self.base_image.subsurface(sprite_base))
 
         sprite_base = pygame.Rect((0, height * 3), sprite_surface)
         self.down_anim.append(self.base_image.subsurface(sprite_base))
@@ -344,7 +360,7 @@ class Pacman(PlayableSprite):
 
     def eat_puck(self, board):
         currtile = self.get_curr_tile(board)
-        print("Pacman is at coordinates %s" % (currtile,))
+        #print("Pacman is at coordinates %s" % (currtile,))
         tile_object = board.tiles[currtile[0]][currtile[1]]
         if(tile_object == Terrain_tiles[2] or tile_object== Terrain_tiles[0]):
             midtile_x = currtile[0] * board.tile_width + board.start_x + (board.tile_width // 2)
@@ -365,7 +381,7 @@ class Pacman(PlayableSprite):
                     self.score += 10
                     sounds[NOM].play()
             elif(self.direction == Direction.LEFT):
-                print("Going left, midtile_x = %s, currx = %s" % (midtile_x, self.x))
+                #print("Going left, midtile_x = %s, currx = %s" % (midtile_x, self.x))
                 if(self.x <= midtile_x):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
@@ -396,6 +412,8 @@ def main():
     guzuta = Ghost("assets/guzuta.png")
     pacman = Pacman("assets/pacman.png", "assets/pacman_none.png")
     board = Board("tilemap.pacman");
+
+
 
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
     player_mappings = [
@@ -454,7 +472,7 @@ def main():
         if(wait > 0):
             time.sleep(wait)
 
-max_speed = 60
+max_speed = 120
 tick_rate = 16.667
 
 UP = 0
@@ -467,7 +485,10 @@ NOM = 1
 PHANTOM_NOM = 2
 PACMAN_DEATH = 3
 
-pygame.mixer.init();
+pygame.font.init()
+font = pygame.font.SysFont("Arial", 20)
+
+pygame.mixer.init()
 sounds = [pygame.mixer.Sound("assets/sfx/intro.wav"), pygame.mixer.Sound("assets/sfx/nom.wav"), pygame.mixer.Sound("assets/sfx/phantom_nom.wav"), pygame.mixer.Sound("assets/sfx/pacman_death.wav")]
 
 main()
