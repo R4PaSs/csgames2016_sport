@@ -95,6 +95,13 @@ class Board:
         tile = self.tiles[x][y]
         return tile != Terrain_tiles[0] and tile != Terrain_tiles[1] and tile != Terrain_tiles[2]
 
+    def tile_at(self, fl_x, fl_y):
+        x = int(fl_x)
+        y = int(fl_y)
+        x_tile = int((x - self.start_x) // self.tile_width)
+        y_tile = int(y // self.tile_height)
+        return (x_tile, y_tile)
+
     def grid_to_abs(self, x, y):
         nx = x * self.tile_width + self.start_x
         ny = y * self.tile_height
@@ -161,35 +168,42 @@ class PlayableSprite:
 
     def queue_event(self, event):
         #print("Queuing event %s" % event)
-        self.event_queue.append((event, 40))
+        self.event_queue.append((event, 30))
 
     def update(self, board):
-        if(self.direction == Direction.UP and self.can_go_up(board)):
+        dist = 0.0
+        if(self.direction == Direction.UP):
             self.real_y -= self.speed / 60
+            dist = self.speed / 60
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
                 coords = board.grid_to_abs(new_tile[0], new_tile[1] + 1)
                 self.real_y = coords[1]
-        elif(self.direction == Direction.RIGHT and self.can_go_right(board)):
+        elif(self.direction == Direction.RIGHT):
             self.real_x += self.speed / 60
+            dist = self.speed / 60
             new_tile = self.get_curr_tile(board)
-            if(board.is_wall(new_tile[0], new_tile[1])):
-                coords = board.grid_to_abs(new_tile[0] - 1, new_tile[1])
+            if(board.is_wall(new_tile[0] + 1, new_tile[1])):
+                coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_x = coords[0]
-        elif(self.direction == Direction.DOWN and self.can_go_down(board)):
+        elif(self.direction == Direction.DOWN):
             self.real_y += self.speed / 60
+            dist = self.speed / 60
             new_tile = self.get_curr_tile(board)
-            if(board.is_wall(new_tile[0], new_tile[1])):
-                coords = board.grid_to_abs(new_tile[0], new_tile[1] - 1)
+            if(board.is_wall(new_tile[0], new_tile[1] + 1)):
+                coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_y = coords[1]
-        elif(self.direction == Direction.LEFT and self.can_go_left(board)):
+        elif(self.direction == Direction.LEFT):
             self.real_x -= self.speed / 60
+            dist = self.speed / 60
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
                 coords = board.grid_to_abs(new_tile[0] + 1, new_tile[1])
                 self.real_x = coords[0]
         self.x = int(self.real_x // 1)
         self.y = int(self.real_y // 1)
+        old_coords = self.rollback(dist)
+        old_tile = board.tile_at(old_coords[0], old_coords[1])
         for i in range(0, len(self.event_queue)):
             evt = self.event_queue.popleft()
             #print("Event %s" % (evt, ))
@@ -198,79 +212,138 @@ class PlayableSprite:
             if(direction == UP):
                 if(self.direction == Direction.UP):
                     continue
-                if(self.can_go_up(board)):
+                if(self.can_go_up(board, old_tile)):
                     self.direction = Direction.UP
             elif(direction == DOWN):
                 if(self.direction == Direction.DOWN):
                     continue
-                if(self.can_go_down(board)):
+                if(self.can_go_down(board, old_tile)):
                     self.direction = Direction.DOWN
             elif(direction == LEFT):
                 if(self.direction == Direction.LEFT):
                     continue
-                if(self.can_go_left(board)):
+                if(self.can_go_left(board, old_tile)):
                     self.direction = Direction.LEFT
             elif(direction == RIGHT):
                 if(self.direction == Direction.RIGHT):
                     continue
-                if(self.can_go_right(board)):
+                if(self.can_go_right(board, old_tile)):
                     self.direction = Direction.RIGHT
             evt = (evt[0], tm - 1)
             if(evt[1] == 0):
                 continue
             self.event_queue.append(evt)
+        self.x = int(self.real_x // 1)
+        self.y = int(self.real_y // 1)
 
-    def can_go_up(self, board):
+    def rollback(self, dist):
+        old_x = self.real_x
+        old_y = self.real_y
+        if(self.direction == Direction.UP):
+            old_y += dist
+        elif(self.direction == Direction.DOWN):
+            old_y -= dist
+        elif(self.direction == Direction.LEFT):
+            old_x += dist
+        elif(self.direction == Direction.RIGHT):
+            old_x -= dist
+        return (old_x, old_y)
+
+    def can_go_up(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
         if(self.y != tilepos[1]):
             return True
+        if(self.direction == Direction.LEFT):
+            if(old_tile != curr_tile):
+                if(board.is_wall(old_tile[0], old_tile[1] - 1)):
+                    return False
+                coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                self.real_x = coords[0]
+                self.real_y = coords[1]
+                return True
+        elif(self.direction == Direction.RIGHT):
+            if(old_tile != curr_tile):
+                if(board.is_wall(curr_tile[0], curr_tile[1] - 1)):
+                    return False
+                self.real_x = tilepos[0]
+                self.real_y = tilepos[1]
+                return True
         if(board.is_wall(curr_tile[0], curr_tile[1] - 1)):
             return False
-        if(self.direction == Direction.LEFT or self.direction == Direction.RIGHT):
-            if(self.x == tilepos[0]):
-                return True
-            else:
-                return False
-        return True
+        if(self.real_x == tilepos[0]):
+            return True
+        return False
 
-    def can_go_left(self, board):
+    def can_go_left(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
         if(self.x != tilepos[0]):
             return True
+        if(self.direction == Direction.UP):
+            if(old_tile != curr_tile):
+                if(board.is_wall(old_tile[0] - 1, old_tile[1])):
+                    return False
+                coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                self.real_x = coords[0]
+                self.real_y = coords[1]
+                return True
+        elif(self.direction == Direction.DOWN):
+            if(old_tile != curr_tile):
+                if(board.is_wall(curr_tile[0] - 1, curr_tile[1])):
+                    return False
+                self.real_x = tilepos[0]
+                self.real_y = tilepos[1]
+                return True
         if(board.is_wall(curr_tile[0] - 1, curr_tile[1])):
             return False
-        if(self.direction == Direction.UP or self.direction == Direction.DOWN):
-            if(self.y == tilepos[1]):
-                return True
-            else:
-                return False
-        return True
+        if(self.real_y == tilepos[1]):
+            return True
+        return False
 
-    def can_go_right(self, board):
+    def can_go_right(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
-        tilepos = board.grid_to_abs(curr_tile[0] + 1, curr_tile[1])
+        tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
+        if(self.direction == Direction.UP):
+            if(board.is_wall(old_tile[0] + 1, old_tile[1])):
+                return False
+            coords = board.grid_to_abs(old_tile[0], old_tile[1])
+            self.real_x = coords[0]
+            self.real_y = coords[1]
+            return True
+        elif(self.direction == Direction.DOWN):
+            if(board.is_wall(curr_tile[0] + 1, curr_tile[1])):
+                return False
+            self.real_x = tilepos[0]
+            self.real_y = tilepos[1]
+            return True
         if(board.is_wall(curr_tile[0] + 1, curr_tile[1])):
             return False
-        if(self.direction == Direction.UP or self.direction == Direction.DOWN):
-            if(self.y == tilepos[1]):
-                return True
-            else:
-                return False
-        return True
+        if(self.real_y == tilepos[1]):
+            return True
+        return False
 
-    def can_go_down(self, board):
+    def can_go_down(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
-        tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1] + 1)
+        tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
+        if(self.direction == Direction.RIGHT):
+            if(board.is_wall(old_tile[0], old_tile[1] + 1)):
+                return False
+            coords = board.grid_to_abs(old_tile[0], old_tile[1])
+            self.real_x = coords[0]
+            self.real_y = coords[1]
+            return True
+        elif(self.direction == Direction.LEFT):
+            if(board.is_wall(curr_tile[0], curr_tile[1] + 1)):
+                return False
+            self.real_x = tilepos[0]
+            self.real_y = tilepos[1]
+            return True
         if(board.is_wall(curr_tile[0], curr_tile[1] + 1)):
             return False
-        if(self.direction == Direction.LEFT or self.direction == Direction.RIGHT):
-            if(self.x == tilepos[0]):
-                return True
-            else:
-                return False
-        return True
+        if(self.real_x == tilepos[0]):
+            return True
+        return False
 
 class Ghost(PlayableSprite):
     """Ghost base class"""
@@ -362,21 +435,11 @@ class Pacman(PlayableSprite):
         currtile = self.get_curr_tile(board)
         #print("Pacman is at coordinates %s" % (currtile,))
         tile_object = board.tiles[currtile[0]][currtile[1]]
-        if(tile_object == Terrain_tiles[2] or tile_object== Terrain_tiles[0]):
-            midtile_x = currtile[0] * board.tile_width + board.start_x + (board.tile_width // 2)
-            midtile_y = currtile[1] * board.tile_height + (board.tile_height // 2)
+        midtile_x = currtile[0] * board.tile_width + board.start_x + (board.tile_width // 2)
+        midtile_y = currtile[1] * board.tile_height + (board.tile_height // 2)
+        if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
             if(self.direction == Direction.UP):
                 if(self.y <= midtile_y):
-                    board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
-                    self.score += 10
-                    sounds[NOM].play()
-            elif(self.direction == Direction.DOWN):
-                if(self.y >= midtile_y):
-                    board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
-                    self.score += 10
-                    sounds[NOM].play()
-            elif(self.direction == Direction.RIGHT):
-                if(self.x >= midtile_x):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
@@ -384,6 +447,20 @@ class Pacman(PlayableSprite):
                 #print("Going left, midtile_x = %s, currx = %s" % (midtile_x, self.x))
                 if(self.x <= midtile_x):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
+                    self.score += 10
+                    sounds[NOM].play()
+        if(self.direction == Direction.DOWN):
+            tile_object = board.tiles[currtile[0]][currtile[1] + 1]
+            if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
+                if(self.y >= midtile_y):
+                    board.tiles[currtile[0]][currtile[1] + 1] = Terrain_tiles[1]
+                    self.score += 10
+                    sounds[NOM].play()
+        if(self.direction == Direction.RIGHT):
+            tile_object = board.tiles[currtile[0] + 1][currtile[1]]
+            if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
+                if(self.x >= midtile_x):
+                    board.tiles[currtile[0] + 1][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
 
