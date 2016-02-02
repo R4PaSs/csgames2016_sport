@@ -46,19 +46,20 @@ class Board:
             content = tilemap.read()
             self.tiles = parse_tilemap(content)
 
+        self.vulnerability_timer = 0
         self.size = width, height = 1280, 800
         vmin = min(width, height)
         self.screen = pygame.display.set_mode(self.size)
         # Assume Width > Height
-        self.tile_height = int(self.screen.get_height() / 28)
-        self.tile_width = int((self.screen.get_height() * 0.903225806) / 28)
+        self.tile_height = int(self.screen.get_height() / 30)
+        self.tile_width = self.tile_height
 
         self.start_x = (self.screen.get_width() - (28 * self.tile_width)) / 2
 
         #print("Tile width = %s, tile height = %s, start x = %s" %(self.tile_width, self.tile_height, self.start_x))
 
         for curr_x in range(0, 28):
-            for curr_y in range(0, 29):
+            for curr_y in range(0, 30):
                 self.blit_tile(self.tiles[curr_x][curr_y], curr_x, curr_y)
 
     def blit_tile(self, sprite, x, y):
@@ -172,7 +173,15 @@ class PlayableSprite:
         self.event_queue.append((event, 30))
 
     def update(self, board):
+        if(isinstance(self, Ghost)):
+            if(not self.alive):
+                for i in range(0, len(self.event_queue)):
+                    continue
         dist = 0.0
+        if(isinstance(self, Ghost)):
+            if(self.is_vulnerable):
+                old_speed = self.speed
+                self.speed /= 2
         if(self.direction == Direction.UP):
             self.real_y -= self.speed / 60.0
             dist = self.speed / 60.0
@@ -238,6 +247,9 @@ class PlayableSprite:
             if(evt[1] == 0):
                 continue
             self.event_queue.append(evt)
+        if(isinstance(self, Ghost)):
+            if(self.is_vulnerable):
+                self.speed = old_speed
         self.x = int(self.real_x // 1)
         self.y = int(self.real_y // 1)
 
@@ -356,12 +368,17 @@ class PlayableSprite:
 class Ghost(PlayableSprite):
     """Ghost base class"""
     is_vulnerable = False
-    vulnerable_sprite = pygame.image.load("assets/vulnerable_ghost.png")
+    vulnerable_sprite = [pygame.image.load("assets/vulnerable_ghost.png"), pygame.image.load("assets/vulnerable_ghost_inverted.png")]
+
+    ghost_eyes = pygame.image.load("assets/ghost_eyes.png")
 
     def __init__(self, path):
+        self.alive = True
         self.speed = 20
         self.event_queue = deque([])
         self.base_image = pygame.image.load(path)
+        self.vulnerability_counter = 0
+        self.vulnerable_sprite_id = 0
         sprite_surface = (self.base_image.get_width() // 2, self.base_image.get_height() // 2)
 
         sprite_base = pygame.Rect((0, 0), sprite_surface)
@@ -380,8 +397,14 @@ class Ghost(PlayableSprite):
 
     def current_sprite(self):
         if(self.is_vulnerable):
-            return self.vulnerable_sprite
-        if(self.direction == Direction.NONE):
+            self.vulnerability_counter += 1
+            if(self.vulnerability_counter == 30):
+                self.vulnerable_sprite_id = self.vulnerable_sprite_id ^ 1
+                self.vulnerability_counter = 0
+            return self.vulnerable_sprite[self.vulnerable_sprite_id]
+        elif(not self.alive):
+            return self.ghost_eyes
+        elif(self.direction == Direction.NONE):
             return self.none_sprite
         elif(self.direction == Direction.UP):
             return self.up_sprite
@@ -400,6 +423,7 @@ class Pacman(PlayableSprite):
     remaining_time_frame = 10
 
     def __init__(self, path, none_path):
+        self.alive = True
         self.score = 0
         self.up_anim = []
         self.right_anim = []
@@ -433,6 +457,11 @@ class Pacman(PlayableSprite):
         self.down_anim.append(self.base_image.subsurface(sprite_base))
 
         self.none_sprite = pygame.image.load(none_path)
+
+        death_image = pygame.image.load("assets/pacman_death.png")
+        self.death_animation = []
+        for i in range(0, 11):
+            self.death_animation.append(death_image.subsurface(pygame.Rect((26 * i, 0), sprite_surface)))
 
     def blit(self, board):
         self.remaining_time_frame -= 1
@@ -468,6 +497,7 @@ class Pacman(PlayableSprite):
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
                             i.is_vulnerable = True
+                        board.vulnerability_timer = 600
             elif(self.direction == Direction.LEFT):
                 #print("Going left, midtile_x = %s, currx = %s" % (midtile_x, self.x))
                 if(self.x <= midtile_x):
@@ -477,6 +507,7 @@ class Pacman(PlayableSprite):
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
                             i.is_vulnerable = True
+                        board.vulnerability_timer = 600
         if(self.direction == Direction.DOWN):
             tile_object = board.tiles[currtile[0]][currtile[1] + 1]
             if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
@@ -487,6 +518,7 @@ class Pacman(PlayableSprite):
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
                             i.is_vulnerable = True
+                        board.vulnerability_timer = 600
         if(self.direction == Direction.RIGHT):
             tile_object = board.tiles[currtile[0] + 1][currtile[1]]
             if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
@@ -497,14 +529,15 @@ class Pacman(PlayableSprite):
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
                             i.is_vulnerable = True
+                        board.vulnerability_timer = 600
 
     def collision(self, board):
         for ghost in ghosts:
             if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
-                if(ghost.is_vulnerable):
-                    ghost.die()
+                if(ghost.is_vulnerable or not ghost.alive):
+                    ghost.alive = False
                 else:
-                    self.die()
+                    self.alive = False
 
 def parse_tilemap(content):
     tilemap = []
@@ -522,11 +555,22 @@ def parse_tilemap(content):
                 x += 1
     return tilemap
 
+def respawn(board):
+    spawn_timers = [0, 300, 600, 900]
+    board.vulnerability_timer = 0
+    akabe.spawn(board, 13, 10)
+    pinky.spawn(board, 11, 13)
+    aosuke.spawn(board, 13, 13)
+    guzuta.spawn(board, 15, 13)
+    pacman.spawn(board, 13, 22)
+
 def main():
     pygame.init();
 
     board = Board("tilemap.pacman");
 
+    respawn(board)
+    vulnerability_timer = 0
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
     player_mappings = [
             [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
@@ -536,24 +580,26 @@ def main():
             [pygame.K_c, pygame.K_v, pygame.K_b, pygame.K_n]
             ]
 
-    akabe.spawn(board, 13, 10)
-    pinky.spawn(board, 11, 13)
-    aosuke.spawn(board, 13, 13)
-    guzuta.spawn(board, 15, 13)
-    pacman.spawn(board, 13, 21)
-
     pygame.display.flip()
 
     #sounds[INTRO].play()
     #time.sleep(6.0)
 
-    aka_pos = akabe.get_curr_tile(board)
-    pink_pos = pinky.get_curr_tile(board)
-    ao_pos = aosuke.get_curr_tile(board)
-    guz_pos = guzuta.get_curr_tile(board)
-
     while True:
         tick = datetime.datetime.now()
+        for i in range(0, 4):
+            if(spawn_timers[i] == 0):
+                continue
+            spawn_timers[i] -= 1
+            if(spawn_timers[i] == 0):
+                board.blit_surroundings(ghosts[i])
+                ghosts[i].spawn(board, 13, 10)
+        if(board.vulnerability_timer > 0):
+            print("Updating vulnerability timer, value is %s", (board.vulnerability_timer))
+            board.vulnerability_timer -= 1
+            if(board.vulnerability_timer == 0):
+                for i in ghosts:
+                    i.is_vulnerable = False
         for event in pygame.event.get():
             if event.type != pygame.KEYDOWN:
                 continue
@@ -562,7 +608,6 @@ def main():
             for i in range(0, 5):
                 for j in range(0, 4):
                     if event.key == player_mappings[i][j]:
-                        #print("Throwing event for player %s: %s" % (i, j))
                         player_entities[i].increase_speed()
                         player_entities[i].queue_event(j)
         for i in range(0, 5):
@@ -611,7 +656,6 @@ guzuta = Ghost("assets/guzuta.png")
 pacman = Pacman("assets/pacman.png", "assets/pacman_none.png")
 
 ghosts = [akabe, pinky, aosuke, guzuta]
-
-vulnerability_timer
+spawn_timers = [0, 300, 600, 900]
 
 main()
