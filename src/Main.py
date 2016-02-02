@@ -78,14 +78,15 @@ class Board:
         self.blit_tile(self.tiles[x + 1][y - 1], x + 1, y - 1)
         self.blit_tile(self.tiles[x - 1][y + 1], x - 1, y + 1)
         self.blit_tile(self.tiles[x + 1][y + 1], x + 1, y + 1)
-        self.blit_tile(self.tiles[x - 2][y], x - 2, y)
-        self.blit_tile(self.tiles[x + 2][y], x + 2, y)
-        self.blit_tile(self.tiles[x][y - 2], x, y - 2)
-        self.blit_tile(self.tiles[x][y + 2], x, y + 2)
-        self.blit_tile(self.tiles[x - 2][y - 2], x - 2, y - 2)
-        self.blit_tile(self.tiles[x + 2][y - 2], x + 2, y - 2)
-        self.blit_tile(self.tiles[x - 2][y + 2], x - 2, y + 2)
-        self.blit_tile(self.tiles[x + 2][y + 2], x + 2, y + 2)
+        spdir = sprite.direction
+        if(spdir == Direction.UP and y + 2 < len(self.tiles[x])):
+            self.blit_tile(self.tiles[x][y + 2], x, y + 2)
+        elif(spdir == Direction.DOWN and y - 2 >= 0):
+            self.blit_tile(self.tiles[x][y - 2], x, y - 2)
+        elif(spdir == Direction.LEFT and x + 2 < len(self.tiles)):
+            self.blit_tile(self.tiles[x + 2][y], x + 2, y)
+        elif(spdir == Direction.RIGHT and x - 2 >= 0):
+            self.blit_tile(self.tiles[x - 2][y], x - 2, y)
 
     def blit(self, sprite):
         sprite_surface = pygame.transform.scale(sprite.current_sprite(), (self.tile_width, self.tile_height))
@@ -173,31 +174,35 @@ class PlayableSprite:
     def update(self, board):
         dist = 0.0
         if(self.direction == Direction.UP):
-            self.real_y -= self.speed / 60
-            dist = self.speed / 60
+            self.real_y -= self.speed / 60.0
+            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
+                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1] + 1)
                 self.real_y = coords[1]
         elif(self.direction == Direction.RIGHT):
-            self.real_x += self.speed / 60
-            dist = self.speed / 60
+            self.real_x += self.speed / 60.0
+            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0] + 1, new_tile[1])):
+                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_x = coords[0]
         elif(self.direction == Direction.DOWN):
-            self.real_y += self.speed / 60
-            dist = self.speed / 60
+            self.real_y += self.speed / 60.0
+            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1] + 1)):
+                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_y = coords[1]
         elif(self.direction == Direction.LEFT):
-            self.real_x -= self.speed / 60
-            dist = self.speed / 60
+            self.real_x -= self.speed / 60.0
+            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
+                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0] + 1, new_tile[1])
                 self.real_x = coords[0]
         self.x = int(self.real_x // 1)
@@ -252,23 +257,22 @@ class PlayableSprite:
     def can_go_up(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
-        if(self.y != tilepos[1]):
-            return True
-        if(self.direction == Direction.LEFT):
-            if(old_tile != curr_tile):
-                if(board.is_wall(old_tile[0], old_tile[1] - 1)):
-                    return False
-                coords = board.grid_to_abs(old_tile[0], old_tile[1])
-                self.real_x = coords[0]
-                self.real_y = coords[1]
-                return True
-        elif(self.direction == Direction.RIGHT):
-            if(old_tile != curr_tile):
-                if(board.is_wall(curr_tile[0], curr_tile[1] - 1)):
-                    return False
-                self.real_x = tilepos[0]
-                self.real_y = tilepos[1]
-                return True
+        if(old_tile != curr_tile):
+            if(self.direction == Direction.LEFT):
+                if(old_tile != curr_tile):
+                    if(board.is_wall(old_tile[0], old_tile[1] - 1)):
+                        return False
+                    coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                    self.real_x = coords[0]
+                    self.real_y = coords[1]
+                    return True
+            elif(self.direction == Direction.RIGHT):
+                if(old_tile != curr_tile):
+                    if(board.is_wall(curr_tile[0], curr_tile[1] - 1)):
+                        return False
+                    self.real_x = tilepos[0]
+                    self.real_y = tilepos[1]
+                    return True
         if(board.is_wall(curr_tile[0], curr_tile[1] - 1)):
             return False
         if(self.real_x == tilepos[0]):
@@ -278,23 +282,22 @@ class PlayableSprite:
     def can_go_left(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
-        if(self.x != tilepos[0]):
-            return True
-        if(self.direction == Direction.UP):
-            if(old_tile != curr_tile):
-                if(board.is_wall(old_tile[0] - 1, old_tile[1])):
-                    return False
-                coords = board.grid_to_abs(old_tile[0], old_tile[1])
-                self.real_x = coords[0]
-                self.real_y = coords[1]
-                return True
-        elif(self.direction == Direction.DOWN):
-            if(old_tile != curr_tile):
-                if(board.is_wall(curr_tile[0] - 1, curr_tile[1])):
-                    return False
-                self.real_x = tilepos[0]
-                self.real_y = tilepos[1]
-                return True
+        if(old_tile != curr_tile):
+            if(self.direction == Direction.UP):
+                if(old_tile != curr_tile):
+                    if(board.is_wall(old_tile[0] - 1, old_tile[1])):
+                        return False
+                    coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                    self.real_x = coords[0]
+                    self.real_y = coords[1]
+                    return True
+            elif(self.direction == Direction.DOWN):
+                if(old_tile != curr_tile):
+                    if(board.is_wall(curr_tile[0] - 1, curr_tile[1])):
+                        return False
+                    self.real_x = tilepos[0]
+                    self.real_y = tilepos[1]
+                    return True
         if(board.is_wall(curr_tile[0] - 1, curr_tile[1])):
             return False
         if(self.real_y == tilepos[1]):
@@ -304,19 +307,20 @@ class PlayableSprite:
     def can_go_right(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
-        if(self.direction == Direction.UP):
-            if(board.is_wall(old_tile[0] + 1, old_tile[1])):
-                return False
-            coords = board.grid_to_abs(old_tile[0], old_tile[1])
-            self.real_x = coords[0]
-            self.real_y = coords[1]
-            return True
-        elif(self.direction == Direction.DOWN):
-            if(board.is_wall(curr_tile[0] + 1, curr_tile[1])):
-                return False
-            self.real_x = tilepos[0]
-            self.real_y = tilepos[1]
-            return True
+        if(old_tile != curr_tile):
+            if(self.direction == Direction.UP):
+                if(board.is_wall(old_tile[0] + 1, old_tile[1])):
+                    return False
+                coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                self.real_x = coords[0]
+                self.real_y = coords[1]
+                return True
+            elif(self.direction == Direction.DOWN):
+                if(board.is_wall(curr_tile[0] + 1, curr_tile[1])):
+                    return False
+                self.real_x = tilepos[0]
+                self.real_y = tilepos[1]
+                return True
         if(board.is_wall(curr_tile[0] + 1, curr_tile[1])):
             return False
         if(self.real_y == tilepos[1]):
@@ -326,19 +330,20 @@ class PlayableSprite:
     def can_go_down(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
-        if(self.direction == Direction.RIGHT):
-            if(board.is_wall(old_tile[0], old_tile[1] + 1)):
-                return False
-            coords = board.grid_to_abs(old_tile[0], old_tile[1])
-            self.real_x = coords[0]
-            self.real_y = coords[1]
-            return True
-        elif(self.direction == Direction.LEFT):
-            if(board.is_wall(curr_tile[0], curr_tile[1] + 1)):
-                return False
-            self.real_x = tilepos[0]
-            self.real_y = tilepos[1]
-            return True
+        if(old_tile != curr_tile):
+            if(self.direction == Direction.RIGHT):
+                if(board.is_wall(curr_tile[0], curr_tile[1] + 1)):
+                    return False
+                self.real_x = tilepos[0]
+                self.real_y = tilepos[1]
+                return True
+            elif(self.direction == Direction.LEFT):
+                if(board.is_wall(old_tile[0], old_tile[1] + 1)):
+                    return False
+                coords = board.grid_to_abs(old_tile[0], old_tile[1])
+                self.real_x = coords[0]
+                self.real_y = coords[1]
+                return True
         if(board.is_wall(curr_tile[0], curr_tile[1] + 1)):
             return False
         if(self.real_x == tilepos[0]):
