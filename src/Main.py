@@ -176,8 +176,21 @@ class PlayableSprite:
         if(isinstance(self, Ghost)):
             if(not self.alive):
                 for i in range(0, len(self.event_queue)):
+                    evt = self.event_queue.popleft()
                     continue
-
+                objective = board.grid_to_abs(13, 13)
+                xdiff = self.real_x - objective[0]
+                ydiff = self.real_y - objective[1]
+                #print("Dead ghost update, distance to destination = (%s, %s)" % (xdiff, ydiff))
+                self.real_y -= ydiff / self.travel_time
+                self.real_x -= xdiff / self.travel_time
+                self.x = int(self.real_x // 1)
+                self.y = int(self.real_y // 1)
+                self.travel_time -= 1.0
+                if(self.travel_time <= 0.0):
+                    self.alive = True
+                    self.travel_time = 0.0
+                return
         dist = 0.0
         if(isinstance(self, Ghost)):
             if(self.is_vulnerable):
@@ -340,9 +353,6 @@ class PlayableSprite:
             return True
         return False
 
-    def die(self):
-        return
-
     def can_go_down(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
@@ -397,14 +407,14 @@ class Ghost(PlayableSprite):
         self.none_sprite = self.up_sprite
 
     def current_sprite(self):
-        if(self.is_vulnerable):
+        if(not self.alive):
+            return self.ghost_eyes
+        elif(self.is_vulnerable):
             self.vulnerability_counter += 1
             if(self.vulnerability_counter == 30):
                 self.vulnerable_sprite_id = self.vulnerable_sprite_id ^ 1
                 self.vulnerability_counter = 0
             return self.vulnerable_sprite[self.vulnerable_sprite_id]
-        elif(not self.alive):
-            return self.ghost_eyes
         elif(self.direction == Direction.NONE):
             return self.none_sprite
         elif(self.direction == Direction.UP):
@@ -537,7 +547,7 @@ class Pacman(PlayableSprite):
             if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
                 if(ghost.is_vulnerable or not ghost.alive):
                     ghost.alive = False
-                    ghost.travel_time = 180
+                    ghost.travel_time = 120.0
                 else:
                     self.alive = False
                     time.sleep(1.3)
@@ -605,8 +615,12 @@ def main():
 
     pygame.display.flip()
 
-    #sounds[INTRO].play()
-    #time.sleep(6.0)
+    sounds[INTRO].play()
+    time.sleep(5.0)
+    for event in pygame.event.get():
+        if(event.type == pygame.KEYDOWN and event.key == pygame.K_q):
+            return
+        continue
 
     while True:
         tick = datetime.datetime.now()
@@ -633,7 +647,7 @@ def main():
                         if(player_entities[i].alive):
                             player_entities[i].increase_speed()
                             player_entities[i].queue_event(j)
-        for i in range(0, 5):
+        for i in range(0, 4):
             player_entities[i].decrease_speed()
             player_entities[i].update(board)
         for i in range(0, 5):
