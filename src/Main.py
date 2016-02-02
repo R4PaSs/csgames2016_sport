@@ -177,6 +177,7 @@ class PlayableSprite:
             if(not self.alive):
                 for i in range(0, len(self.event_queue)):
                     continue
+
         dist = 0.0
         if(isinstance(self, Ghost)):
             if(self.is_vulnerable):
@@ -536,8 +537,30 @@ class Pacman(PlayableSprite):
             if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
                 if(ghost.is_vulnerable or not ghost.alive):
                     ghost.alive = False
+                    ghost.travel_time = 180
                 else:
                     self.alive = False
+                    time.sleep(1.3)
+
+    def play_death_animation(self, board):
+        sounds[PACMAN_DEATH].play()
+        for i in self.death_animation:
+            for j in range(0, 10):
+                tick = datetime.datetime.now()
+                board.blit_surroundings(self)
+                sprite_surface = pygame.transform.scale(i, (board.tile_width, board.tile_height))
+                board.screen.blit(sprite_surface, (self.x, self.y))
+                ntick = datetime.datetime.now()
+                tckdiff = ntick - tick
+                tick = ntick
+                rendr_time = tckdiff.microseconds // 1000
+                #print("Frame computed in %s milliseconds" % rendr_time)
+                wait = (tick_rate - rendr_time) / 1000
+                pygame.display.flip()
+                if(wait > 0):
+                    time.sleep(wait)
+        board.blit_surroundings(self)
+        pacman.alive = True
 
 def parse_tilemap(content):
     tilemap = []
@@ -607,8 +630,9 @@ def main():
             for i in range(0, 5):
                 for j in range(0, 4):
                     if event.key == player_mappings[i][j]:
-                        player_entities[i].increase_speed()
-                        player_entities[i].queue_event(j)
+                        if(player_entities[i].alive):
+                            player_entities[i].increase_speed()
+                            player_entities[i].queue_event(j)
         for i in range(0, 5):
             player_entities[i].decrease_speed()
             player_entities[i].update(board)
@@ -628,6 +652,9 @@ def main():
         wait = (tick_rate - rendr_time) / 1000
         if(wait > 0):
             time.sleep(wait)
+        if(not pacman.alive):
+            pacman.play_death_animation(board)
+            respawn(board)
 
 max_speed = 120
 tick_rate = 16.667
