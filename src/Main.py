@@ -647,9 +647,16 @@ def main():
                         if(player_entities[i].alive):
                             player_entities[i].increase_speed()
                             player_entities[i].queue_event(j)
+        check_alive = []
+        for i in range(0, 4):
+            if not ghosts[i].alive:
+                check_alive.append(i)
         for i in range(0, 4):
             player_entities[i].decrease_speed()
             player_entities[i].update(board)
+        for i in check_alive:
+            if ghosts[i].alive:
+                spawn_timers[i] = 150
         for i in range(0, 5):
             board.blit_surroundings(player_entities[i])
         for i in range(1, 5):
