@@ -327,6 +327,9 @@ class PlayableSprite:
             return True
         return False
 
+    def die(self):
+        return
+
     def can_go_down(self, board, old_tile):
         curr_tile = self.get_curr_tile(board)
         tilepos = board.grid_to_abs(curr_tile[0], curr_tile[1])
@@ -352,7 +355,7 @@ class PlayableSprite:
 
 class Ghost(PlayableSprite):
     """Ghost base class"""
-    vulnerable = False
+    is_vulnerable = False
     vulnerable_sprite = pygame.image.load("assets/vulnerable_ghost.png")
 
     def __init__(self, path):
@@ -374,6 +377,20 @@ class Ghost(PlayableSprite):
         self.left_sprite = self.base_image.subsurface(sprite_base)
 
         self.none_sprite = self.up_sprite
+
+    def current_sprite(self):
+        if(self.is_vulnerable):
+            return self.vulnerable_sprite
+        if(self.direction == Direction.NONE):
+            return self.none_sprite
+        elif(self.direction == Direction.UP):
+            return self.up_sprite
+        elif(self.direction == Direction.DOWN):
+            return self.down_sprite
+        elif(self.direction == Direction.LEFT):
+            return self.left_sprite
+        elif(self.direction == Direction.RIGHT):
+            return self.right_sprite
 
 class Pacman(PlayableSprite):
     """Pacman object"""
@@ -448,12 +465,18 @@ class Pacman(PlayableSprite):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
+                    if(tile_object == Terrain_tiles[0]):
+                        for i in ghosts:
+                            i.is_vulnerable = True
             elif(self.direction == Direction.LEFT):
                 #print("Going left, midtile_x = %s, currx = %s" % (midtile_x, self.x))
                 if(self.x <= midtile_x):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
+                    if(tile_object == Terrain_tiles[0]):
+                        for i in ghosts:
+                            i.is_vulnerable = True
         if(self.direction == Direction.DOWN):
             tile_object = board.tiles[currtile[0]][currtile[1] + 1]
             if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
@@ -461,6 +484,9 @@ class Pacman(PlayableSprite):
                     board.tiles[currtile[0]][currtile[1] + 1] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
+                    if(tile_object == Terrain_tiles[0]):
+                        for i in ghosts:
+                            i.is_vulnerable = True
         if(self.direction == Direction.RIGHT):
             tile_object = board.tiles[currtile[0] + 1][currtile[1]]
             if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
@@ -468,6 +494,17 @@ class Pacman(PlayableSprite):
                     board.tiles[currtile[0] + 1][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
                     sounds[NOM].play()
+                    if(tile_object == Terrain_tiles[0]):
+                        for i in ghosts:
+                            i.is_vulnerable = True
+
+    def collision(self, board):
+        for ghost in ghosts:
+            if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
+                if(ghost.is_vulnerable):
+                    ghost.die()
+                else:
+                    self.die()
 
 def parse_tilemap(content):
     tilemap = []
@@ -488,14 +525,7 @@ def parse_tilemap(content):
 def main():
     pygame.init();
 
-    akabe = Ghost("assets/akabe.png")
-    pinky = Ghost("assets/pinky.png")
-    aosuke = Ghost("assets/aosuke.png")
-    guzuta = Ghost("assets/guzuta.png")
-    pacman = Pacman("assets/pacman.png", "assets/pacman_none.png")
     board = Board("tilemap.pacman");
-
-
 
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
     player_mappings = [
@@ -514,8 +544,8 @@ def main():
 
     pygame.display.flip()
 
-    sounds[INTRO].play()
-    time.sleep(6.0)
+    #sounds[INTRO].play()
+    #time.sleep(6.0)
 
     aka_pos = akabe.get_curr_tile(board)
     pink_pos = pinky.get_curr_tile(board)
@@ -542,6 +572,7 @@ def main():
             board.blit_surroundings(player_entities[i])
         for i in range(1, 5):
             board.blit(player_entities[i])
+        pacman.collision(board)
         pacman.eat_puck(board)
         pacman.blit(board)
         pygame.display.flip()
@@ -572,5 +603,15 @@ font = pygame.font.SysFont("Arial", 20)
 
 pygame.mixer.init()
 sounds = [pygame.mixer.Sound("assets/sfx/intro.wav"), pygame.mixer.Sound("assets/sfx/nom.wav"), pygame.mixer.Sound("assets/sfx/phantom_nom.wav"), pygame.mixer.Sound("assets/sfx/pacman_death.wav")]
+
+akabe = Ghost("assets/akabe.png")
+pinky = Ghost("assets/pinky.png")
+aosuke = Ghost("assets/aosuke.png")
+guzuta = Ghost("assets/guzuta.png")
+pacman = Pacman("assets/pacman.png", "assets/pacman_none.png")
+
+ghosts = [akabe, pinky, aosuke, guzuta]
+
+vulnerability_timer
 
 main()
