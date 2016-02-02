@@ -595,7 +595,6 @@ def main():
                 board.blit_surroundings(ghosts[i])
                 ghosts[i].spawn(board, 13, 10)
         if(board.vulnerability_timer > 0):
-            print("Updating vulnerability timer, value is %s", (board.vulnerability_timer))
             board.vulnerability_timer -= 1
             if(board.vulnerability_timer == 0):
                 for i in ghosts:
