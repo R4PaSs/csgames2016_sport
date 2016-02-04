@@ -1,4 +1,6 @@
 import pygame
+import socket
+import select
 from enum import Enum
 import math
 import datetime
@@ -159,7 +161,7 @@ class PlayableSprite:
         return (x_tile, y_tile)
 
     def decrease_speed(self):
-        #self.speed -= 0.5
+        self.speed -= 0.5
         if(self.speed < 0):
             self.speed = 0
 
@@ -191,6 +193,8 @@ class PlayableSprite:
                     self.alive = True
                     self.travel_time = 0.0
                 return
+        curr_x_pos = self.real_x
+        curr_y_pos = self.real_y
         dist = 0.0
         if(isinstance(self, Ghost)):
             if(self.is_vulnerable):
@@ -198,36 +202,32 @@ class PlayableSprite:
                 self.speed /= 2
         if(self.direction == Direction.UP):
             self.real_y -= self.speed / 60.0
-            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
-                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1] + 1)
                 self.real_y = coords[1]
         elif(self.direction == Direction.RIGHT):
             self.real_x += self.speed / 60.0
-            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0] + 1, new_tile[1])):
-                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_x = coords[0]
         elif(self.direction == Direction.DOWN):
             self.real_y += self.speed / 60.0
-            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1] + 1)):
-                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_y = coords[1]
         elif(self.direction == Direction.LEFT):
             self.real_x -= self.speed / 60.0
-            dist = self.speed / 60.0
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
-                dist = 0.0
                 coords = board.grid_to_abs(new_tile[0] + 1, new_tile[1])
                 self.real_x = coords[0]
+        if(curr_x_pos != self.real_x):
+            dist = self.real_x - curr_x_pos
+        elif(curr_y_pos != self.real_y):
+            dist = self.real_y - curr_y_pos
         self.x = int(self.real_x // 1)
         self.y = int(self.real_y // 1)
         old_coords = self.rollback(dist)
@@ -270,13 +270,9 @@ class PlayableSprite:
     def rollback(self, dist):
         old_x = self.real_x
         old_y = self.real_y
-        if(self.direction == Direction.UP):
-            old_y += dist
-        elif(self.direction == Direction.DOWN):
+        if(self.direction == Direction.UP or self.direction == Direction.DOWN):
             old_y -= dist
-        elif(self.direction == Direction.LEFT):
-            old_x += dist
-        elif(self.direction == Direction.RIGHT):
+        elif(self.direction == Direction.LEFT or self.direction == Direction.RIGHT):
             old_x -= dist
         return (old_x, old_y)
 
@@ -602,6 +598,14 @@ def main():
 
     board = Board("tilemap.pacman");
 
+    server = socket.socket()
+    server.bind(('127.0.0.1', 4444))
+    server.listen(5)
+    clients = []
+    for i in range(0, 1):
+        clients.append(server.accept()[0])
+    server.close()
+
     respawn(board)
     vulnerability_timer = 0
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
@@ -636,6 +640,23 @@ def main():
             if(board.vulnerability_timer == 0):
                 for i in ghosts:
                     i.is_vulnerable = False
+        rsocks, _, _ = select.select(clients, [], [], 0)
+        for i in rsocks:
+            idx = clients.index(i)
+            msg = clients[idx].recv(1024)
+            while len(msg) != 0:
+                cmd = msg[:2]
+                msg = msg[2:]
+                if cmd == "SU":
+                    player_entities[idx].increase_speed()
+                elif cmd == "CR":
+                    player_entities[idx].queue_event(RIGHT)
+                elif cmd == "CU":
+                    player_entities[idx].queue_event(UP)
+                elif cmd == "CD":
+                    player_entities[idx].queue_event(DOWN)
+                elif cmd == "CL":
+                    player_entities[idx].queue_event(LEFT)
         for event in pygame.event.get():
             if event.type != pygame.KEYDOWN:
                 continue
