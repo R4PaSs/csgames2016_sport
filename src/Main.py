@@ -172,7 +172,7 @@ class PlayableSprite:
 
     def queue_event(self, event):
         #print("Queuing event %s" % event)
-        self.event_queue.append((event, 30))
+        self.event_queue.append((event, 7))
 
     def update(self, board):
         if(isinstance(self, Ghost)):
@@ -228,8 +228,8 @@ class PlayableSprite:
             dist = self.real_x - curr_x_pos
         elif(curr_y_pos != self.real_y):
             dist = self.real_y - curr_y_pos
-        self.x = int(self.real_x // 1)
-        self.y = int(self.real_y // 1)
+        self.x = int(self.real_x)
+        self.y = int(self.real_y)
         old_coords = self.rollback(dist)
         old_tile = board.tile_at(old_coords[0], old_coords[1])
         for i in range(0, len(self.event_queue)):
@@ -542,6 +542,7 @@ class Pacman(PlayableSprite):
         for ghost in ghosts:
             if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
                 if(ghost.is_vulnerable or not ghost.alive):
+                    sounds[PHANTOM_NOM].play()
                     ghost.alive = False
                     ghost.travel_time = 120.0
                 else:
@@ -599,12 +600,18 @@ def main():
     board = Board("tilemap.pacman");
 
     server = socket.socket()
-    server.bind(('127.0.0.1', 4444))
-    server.listen(5)
-    clients = []
-    for i in range(0, 1):
-        clients.append(server.accept()[0])
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(('0.0.0.0', 4444))
+    server.listen(1)
+    #clients = []
+    #for i in range(0, 1):
+        #clients.append(server.accept()[0])
     server.close()
+
+    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+    for i in joysticks:
+        i.init()
+    print joysticks
 
     respawn(board)
     vulnerability_timer = 0
@@ -616,6 +623,7 @@ def main():
             [pygame.K_i, pygame.K_l, pygame.K_k, pygame.K_j],
             [pygame.K_c, pygame.K_v, pygame.K_b, pygame.K_n]
             ]
+    joystick_map = [-1, -1, -1, -1, -1, -1, -1, -1 ,-1 ,-1 ,-1 ,-1 , 0, 1, 2, 3]
 
     pygame.display.flip()
 
@@ -640,34 +648,33 @@ def main():
             if(board.vulnerability_timer == 0):
                 for i in ghosts:
                     i.is_vulnerable = False
-        rsocks, _, _ = select.select(clients, [], [], 0)
+        #rsocks, _, _ = select.select(clients, [], [], 0)
+        rsocks = []
         for i in rsocks:
             idx = clients.index(i)
             msg = clients[idx].recv(1024)
             while len(msg) != 0:
-                cmd = msg[:2]
-                msg = msg[2:]
-                if cmd == "SU":
-                    player_entities[idx].increase_speed()
-                elif cmd == "CR":
-                    player_entities[idx].queue_event(RIGHT)
-                elif cmd == "CU":
-                    player_entities[idx].queue_event(UP)
-                elif cmd == "CD":
-                    player_entities[idx].queue_event(DOWN)
-                elif cmd == "CL":
-                    player_entities[idx].queue_event(LEFT)
+                cmd = msg[:1]
+                msg = msg[1:]
+                idx = int(cmd)
+                player_entities[idx].increase_speed()
         for event in pygame.event.get():
-            if event.type != pygame.KEYDOWN:
-                continue
-            if event.key == pygame.K_q:
-                return
-            for i in range(0, 5):
-                for j in range(0, 4):
-                    if event.key == player_mappings[i][j]:
-                        if(player_entities[i].alive):
-                            player_entities[i].increase_speed()
-                            player_entities[i].queue_event(j)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    return
+                for i in range(0, 5):
+                    for j in range(0, 4):
+                        if event.key == player_mappings[i][j]:
+                            if(player_entities[i].alive):
+                                player_entities[i].increase_speed()
+                                player_entities[i].queue_event(j)
+            if event.type == pygame.JOYBUTTONDOWN:
+                #print event
+                direction = joystick_map[int(event.button)]
+                player = int(event.joy)
+                player_entities[player].increase_speed()
+                #print("Queuing direction %s for player %s" % (direction, player))
+                player_entities[player].queue_event(direction)
         check_alive = []
         for i in range(0, 4):
             if not ghosts[i].alive:
@@ -712,6 +719,7 @@ PHANTOM_NOM = 2
 PACMAN_DEATH = 3
 
 pygame.font.init()
+pygame.joystick.init()
 font = pygame.font.SysFont("Arial", 20)
 
 pygame.mixer.init()
