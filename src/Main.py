@@ -33,13 +33,15 @@ FULL_WALL = 20
 """
 Terrain_tiles = [pygame.image.load("assets/terrain/big_dot_sprite.png"), pygame.image.load("assets/terrain/blank_tile.png"), pygame.image.load("assets/terrain/dot_sprite.png"), pygame.image.load("assets/terrain/down_double_wall.png"), pygame.image.load("assets/terrain/down_left_angled_corner.png"), pygame.image.load("assets/terrain/down_left_smooth_corner.png"), pygame.image.load("assets/terrain/down_right_angled_corner.png"), pygame.image.load("assets/terrain/down_right_smooth_corner.png"), pygame.image.load("assets/terrain/down_simple_wall.png"), pygame.image.load("assets/terrain/ghost_spawn_barrier.png"), pygame.image.load("assets/terrain/left_double_wall.png"), pygame.image.load("assets/terrain/left_simple_wall.png"), pygame.image.load("assets/terrain/right_double_wall.png"), pygame.image.load("assets/terrain/right_simple_wall.png"), pygame.image.load("assets/terrain/up_double_wall.png"), pygame.image.load("assets/terrain/up_left_angled_corner.png"), pygame.image.load("assets/terrain/up_left_smooth_corner.png"), pygame.image.load("assets/terrain/up_right_angled_corner.png"), pygame.image.load("assets/terrain/up_right_smooth_corner.png"), pygame.image.load("assets/terrain/up_simple_wall.png"), pygame.image.load("assets/terrain/full_wall.png")]
 
-GHOST_MAX_SPEED = 150
-PACMAN_MAX_SPEED = 200
+GHOST_MAX_SPEED = 120
+PACMAN_MAX_SPEED = 160
 
 DEFAULT_X = 1280.0
 DEFAULT_Y = 800.0
 SPEED_MULTIPLIER = 1.0
 
+BASE_SPEED_INCREASE = 10
+BASE_SPEED_DECREASE = -.3
 SPEED_INCREASE = 10
 SPEED_DECREASE = -.3
 
@@ -488,6 +490,7 @@ class Pacman(PlayableSprite):
         height = self.base_image.get_height() // 4
         sprite_surface = (width, height)
         self.max_speed = PACMAN_MAX_SPEED
+        self.lives = 3
 
         sprite_base = pygame.Rect((0, 0), sprite_surface)
         self.left_anim.append(self.base_image.subsurface(sprite_base))
@@ -667,8 +670,8 @@ def main():
     global SPEED_INCREASE
     global SPEED_DECREASE
     global SPEED_MULTIPLIER
-    SPEED_INCREASE = int(float(SPEED_INCREASE) * SPEED_MULTIPLIER)
-    SPEED_DECREASE *= SPEED_MULTIPLIER
+    SPEED_INCREASE = int(float(BASE_SPEED_INCREASE) * SPEED_MULTIPLIER)
+    SPEED_DECREASE = BASE_SPEED_DECREASE * SPEED_MULTIPLIER
 
     print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
 
