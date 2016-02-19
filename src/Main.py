@@ -33,8 +33,15 @@ FULL_WALL = 20
 """
 Terrain_tiles = [pygame.image.load("assets/terrain/big_dot_sprite.png"), pygame.image.load("assets/terrain/blank_tile.png"), pygame.image.load("assets/terrain/dot_sprite.png"), pygame.image.load("assets/terrain/down_double_wall.png"), pygame.image.load("assets/terrain/down_left_angled_corner.png"), pygame.image.load("assets/terrain/down_left_smooth_corner.png"), pygame.image.load("assets/terrain/down_right_angled_corner.png"), pygame.image.load("assets/terrain/down_right_smooth_corner.png"), pygame.image.load("assets/terrain/down_simple_wall.png"), pygame.image.load("assets/terrain/ghost_spawn_barrier.png"), pygame.image.load("assets/terrain/left_double_wall.png"), pygame.image.load("assets/terrain/left_simple_wall.png"), pygame.image.load("assets/terrain/right_double_wall.png"), pygame.image.load("assets/terrain/right_simple_wall.png"), pygame.image.load("assets/terrain/up_double_wall.png"), pygame.image.load("assets/terrain/up_left_angled_corner.png"), pygame.image.load("assets/terrain/up_left_smooth_corner.png"), pygame.image.load("assets/terrain/up_right_angled_corner.png"), pygame.image.load("assets/terrain/up_right_smooth_corner.png"), pygame.image.load("assets/terrain/up_simple_wall.png"), pygame.image.load("assets/terrain/full_wall.png")]
 
-GHOST_MAX_SPEED = 120
-PACMAN_MAX_SPEED = 160
+GHOST_MAX_SPEED = 140
+PACMAN_MAX_SPEED = 180
+
+DEFAULT_X = 1280.0
+DEFAULT_Y = 800.0
+SPEED_MULTIPLIER = 1.0
+
+SPEED_INCREASE = 10
+SPEED_DECREASE = -.3
 
 class Direction(Enum):
     UP = 0
@@ -52,15 +59,19 @@ class Board:
             self.tiles = parse_tilemap(content)
 
         self.vulnerability_timer = 0
-        self.size = width, height = 1280, 800
-        vmin = min(width, height)
-        self.screen = pygame.display.set_mode(self.size)
+        self.screen=pygame.display.set_mode((0,0), (pygame.FULLSCREEN | pygame.HWSURFACE))
+        #pygame.display.toggle_fullscreen()
+        display_info = pygame.display.Info()
         # Assume Width > Height
-        self.tile_height = int(self.screen.get_height() / 30)
+        self.tile_height = int(display_info.current_h / 30)
         self.tile_width = self.tile_height
 
-        self.start_x = (self.screen.get_width() - (28 * self.tile_width)) / 2
+        self.start_x = (display_info.current_w - (28 * self.tile_width)) / 2
 
+        SPEED_MULTIPLIER = float(display_info.current_h) / DEFAULT_Y
+        print("Speed multiplier = %s", (SPEED_MULTIPLIER))
+
+        #print("Screen info: width = %s, height = %s" % (display_info.current_w, display_info.current_h))
         #print("Tile width = %s, tile height = %s, start x = %s" %(self.tile_width, self.tile_height, self.start_x))
 
         for curr_x in range(0, 28):
@@ -164,12 +175,12 @@ class PlayableSprite:
         return (x_tile, y_tile)
 
     def decrease_speed(self):
-        #self.speed -= 0.5
+        #self.speed -= SPEED_DECREASE
         if(self.speed < 0):
             self.speed = 0
 
     def increase_speed(self):
-        self.speed += 5
+        self.speed += SPEED_INCREASE
         if(self.speed > self.max_speed):
             self.speed = self.max_speed
 
@@ -414,6 +425,10 @@ class Ghost(PlayableSprite):
 
         self.none_sprite = self.up_sprite
 
+    def update_speed(self):
+        self.max_speed = int(float(GHOST_MAX_SPEED) * SPEED_MULTIPLIER)
+        print("Ghost max speed = %s", self.max_speed)
+
     def current_sprite(self):
         if(not self.alive):
             return self.ghost_eyes
@@ -482,6 +497,10 @@ class Pacman(PlayableSprite):
         self.death_animation = []
         for i in range(0, 11):
             self.death_animation.append(death_image.subsurface(pygame.Rect((26 * i, 0), sprite_surface)))
+
+    def update_speed(self):
+        self.max_speed = int(float(PACMAN_MAX_SPEED) * SPEED_MULTIPLIER)
+        print("Pacman max speed = %s", self.max_speed)
 
     def blit(self, board):
         self.remaining_time_frame -= 1
@@ -629,6 +648,8 @@ def main():
     respawn(board)
     vulnerability_timer = 0
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
+    for i in player_entities:
+        i.update_speed
     player_mappings = [
             [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
             [pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a],
