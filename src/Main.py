@@ -84,6 +84,14 @@ class Board:
         tile_surface = pygame.transform.scale(sprite, (self.tile_width, self.tile_height))
         self.screen.blit(tile_surface, (x * self.tile_width + self.start_x , self.tile_height * y))
 
+    def blit_score(self, score):
+        self.screen.blit(SCORE, (30, 30))
+        self.screen.blit(SCORE_SURF, (SCORE.get_width() + 30, 30))
+
+    def blit_lives(self, lives):
+        self.screen.blit(LIVES, (30, 60))
+        self.screen.blit(LIVE_SURF, (LIVES.get_width() + 30, 60))
+
     def blit_surroundings(self, sprite):
         tile_pos = sprite.get_curr_tile(self)
         x = tile_pos[0]
@@ -403,9 +411,13 @@ class Ghost(PlayableSprite):
 
     ghost_eyes = pygame.image.load("assets/ghost_eyes.png")
 
+    def reset(self):
+        self.score = 0
+        self.speed = 0
+
     def __init__(self, path):
         self.alive = True
-        self.speed = 20
+        self.speed = 0
         self.event_queue = deque([])
         self.base_image = pygame.image.load(path)
         self.vulnerability_counter = 0
@@ -453,10 +465,14 @@ class Ghost(PlayableSprite):
 
 class Pacman(PlayableSprite):
     """Pacman object"""
-    lives = 3
     
     animation_frame = 0
     remaining_time_frame = 10
+
+    def reset(self):
+        self.lives = 3
+        self.score = 0
+        self.speed = 0
 
     def __init__(self, path, none_path):
         self.alive = True
@@ -465,7 +481,7 @@ class Pacman(PlayableSprite):
         self.right_anim = []
         self.down_anim = []
         self.left_anim = []
-        self.speed = 20
+        self.speed = 0
         self.event_queue = deque([])
         self.base_image = pygame.image.load(path)
         width = self.base_image.get_width() // 2
@@ -529,11 +545,13 @@ class Pacman(PlayableSprite):
         tile_object = board.tiles[currtile[0]][currtile[1]]
         midtile_x = currtile[0] * board.tile_width + board.start_x + (board.tile_width // 2)
         midtile_y = currtile[1] * board.tile_height + (board.tile_height // 2)
+        global SCORE_SURF
         if(tile_object == Terrain_tiles[2] or tile_object == Terrain_tiles[0]):
             if(self.direction == Direction.UP):
                 if(self.y <= midtile_y):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
+                    SCORE_SURF = font.render(str(self.score), True, (255,255,255), (0,0,0))
                     sounds[NOM].play()
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
@@ -544,6 +562,7 @@ class Pacman(PlayableSprite):
                 if(self.x <= midtile_x):
                     board.tiles[currtile[0]][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
+                    SCORE_SURF = font.render(str(self.score), True, (255,255,255), (0,0,0))
                     sounds[NOM].play()
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
@@ -555,6 +574,7 @@ class Pacman(PlayableSprite):
                 if(self.y >= midtile_y):
                     board.tiles[currtile[0]][currtile[1] + 1] = Terrain_tiles[1]
                     self.score += 10
+                    SCORE_SURF = font.render(str(self.score), True, (255,255,255), (0,0,0))
                     sounds[NOM].play()
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
@@ -566,6 +586,7 @@ class Pacman(PlayableSprite):
                 if(self.x >= midtile_x):
                     board.tiles[currtile[0] + 1][currtile[1]] = Terrain_tiles[1]
                     self.score += 10
+                    SCORE_SURF = font.render(str(self.score), True, (255,255,255), (0,0,0))
                     sounds[NOM].play()
                     if(tile_object == Terrain_tiles[0]):
                         for i in ghosts:
@@ -575,13 +596,18 @@ class Pacman(PlayableSprite):
     def collision(self, board):
         for ghost in ghosts:
             if(abs(self.real_x - ghost.real_x) < board.tile_width and abs(self.real_y - ghost.real_y) < board.tile_height):
-                if(ghost.is_vulnerable or not ghost.alive):
+                if(ghost.is_vulnerable and ghost.alive):
                     sounds[PHANTOM_NOM].play()
                     ghost.alive = False
                     ghost.travel_time = 120.0
+                    self.score += 100
+                    global SCORE_SURF
+                    SCORE_SURF = font.render(str(self.score), True, (255,255,255), (0,0,0))
                 else:
-                    self.alive = False
-                    time.sleep(1.3)
+                    if not ghost.is_vulnerable and ghost.alive and self.alive:
+                        self.alive = False
+                        self.lives -= 1
+                        time.sleep(1.3)
 
     def play_death_animation(self, board):
         sounds[PACMAN_DEATH].play()
@@ -631,6 +657,8 @@ def respawn(board):
 def main():
     pygame.init();
 
+    global SCORE_SURF
+    SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
     board = Board("tilemap.pacman");
     global SPEED_INCREASE
     global SPEED_DECREASE
@@ -658,6 +686,7 @@ def main():
     vulnerability_timer = 0
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
     for i in player_entities:
+        i.reset()
         i.update_speed()
     player_mappings = [
             [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
@@ -674,10 +703,22 @@ def main():
     time.sleep(5.0)
     for event in pygame.event.get():
         if(event.type == pygame.KEYDOWN and event.key == pygame.K_q):
-            return
+            return 1
         continue
 
     while True:
+        if pacman.lives == 0:
+            fnt = pygame.font.SysFont("Arial", 60)
+            game_over = fnt.render("GAME OVER", True, (255, 255, 255))
+            continue_msg = fnt.render("PRESS A KEY TO CONTINUE", True, (255, 255, 255))
+            board.screen.blit(game_over, (board.screen.get_width() // 2 - 200, board.screen.get_height() // 2 - 80))
+            board.screen.blit(continue_msg, (board.screen.get_width() // 2 - 400, board.screen.get_height() // 2))
+            pygame.display.flip()
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        return 0
+                time.sleep(0.01666)
         tick = datetime.datetime.now()
         for i in range(0, 4):
             if(spawn_timers[i] == 0):
@@ -704,7 +745,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
-                    return
+                    return 1
                 for i in range(0, 5):
                     for j in range(0, 4):
                         if event.key == player_mappings[i][j]:
@@ -722,7 +763,7 @@ def main():
         for i in range(0, 4):
             if not ghosts[i].alive:
                 check_alive.append(i)
-        for i in range(0, 4):
+        for i in range(0, 5):
             player_entities[i].decrease_speed()
             player_entities[i].update(board)
         for i in check_alive:
@@ -730,11 +771,12 @@ def main():
                 spawn_timers[i] = 150
         for i in range(0, 5):
             board.blit_surroundings(player_entities[i])
-        for i in range(1, 5):
-            board.blit(player_entities[i])
+        for i in range(0, 4):
+            board.blit(ghosts[i])
         pacman.collision(board)
         pacman.eat_puck(board)
         pacman.blit(board)
+        board.blit_score(pacman.score)
         pygame.display.flip()
         ntick = datetime.datetime.now()
         tckdiff = ntick - tick
@@ -763,6 +805,8 @@ PACMAN_DEATH = 3
 pygame.font.init()
 pygame.joystick.init()
 font = pygame.font.SysFont("Arial", 20)
+SCORE = font.render("SCORE = ", True, (255,255,0))
+LIVES = font.render("LIVES = ", True, (255,255,0))
 
 pygame.mixer.init()
 sounds = [pygame.mixer.Sound("assets/sfx/intro.wav"), pygame.mixer.Sound("assets/sfx/nom.wav"), pygame.mixer.Sound("assets/sfx/phantom_nom.wav"), pygame.mixer.Sound("assets/sfx/pacman_death.wav")]
@@ -773,7 +817,10 @@ aosuke = Ghost("assets/aosuke.png")
 guzuta = Ghost("assets/guzuta.png")
 pacman = Pacman("assets/pacman.png", "assets/pacman_none.png")
 
+SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
+
 ghosts = [akabe, pinky, aosuke, guzuta]
 spawn_timers = [0, 300, 600, 900]
 
-main()
+while main() == 0:
+    continue
