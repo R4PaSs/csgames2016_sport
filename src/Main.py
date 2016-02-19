@@ -205,24 +205,32 @@ class PlayableSprite:
                 self.speed /= 2
         if(self.direction == Direction.UP):
             self.real_y -= self.speed / 60.0
+            self.x = int(self.real_x)
+            self.y = int(self.real_y)
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
                 coords = board.grid_to_abs(new_tile[0], new_tile[1] + 1)
                 self.real_y = coords[1]
         elif(self.direction == Direction.RIGHT):
             self.real_x += self.speed / 60.0
+            self.x = int(self.real_x)
+            self.y = int(self.real_y)
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0] + 1, new_tile[1])):
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_x = coords[0]
         elif(self.direction == Direction.DOWN):
             self.real_y += self.speed / 60.0
+            self.x = int(self.real_x)
+            self.y = int(self.real_y)
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1] + 1)):
                 coords = board.grid_to_abs(new_tile[0], new_tile[1])
                 self.real_y = coords[1]
         elif(self.direction == Direction.LEFT):
             self.real_x -= self.speed / 60.0
+            self.x = int(self.real_x)
+            self.y = int(self.real_y)
             new_tile = self.get_curr_tile(board)
             if(board.is_wall(new_tile[0], new_tile[1])):
                 coords = board.grid_to_abs(new_tile[0] + 1, new_tile[1])
