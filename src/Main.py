@@ -33,6 +33,9 @@ FULL_WALL = 20
 """
 Terrain_tiles = [pygame.image.load("assets/terrain/big_dot_sprite.png"), pygame.image.load("assets/terrain/blank_tile.png"), pygame.image.load("assets/terrain/dot_sprite.png"), pygame.image.load("assets/terrain/down_double_wall.png"), pygame.image.load("assets/terrain/down_left_angled_corner.png"), pygame.image.load("assets/terrain/down_left_smooth_corner.png"), pygame.image.load("assets/terrain/down_right_angled_corner.png"), pygame.image.load("assets/terrain/down_right_smooth_corner.png"), pygame.image.load("assets/terrain/down_simple_wall.png"), pygame.image.load("assets/terrain/ghost_spawn_barrier.png"), pygame.image.load("assets/terrain/left_double_wall.png"), pygame.image.load("assets/terrain/left_simple_wall.png"), pygame.image.load("assets/terrain/right_double_wall.png"), pygame.image.load("assets/terrain/right_simple_wall.png"), pygame.image.load("assets/terrain/up_double_wall.png"), pygame.image.load("assets/terrain/up_left_angled_corner.png"), pygame.image.load("assets/terrain/up_left_smooth_corner.png"), pygame.image.load("assets/terrain/up_right_angled_corner.png"), pygame.image.load("assets/terrain/up_right_smooth_corner.png"), pygame.image.load("assets/terrain/up_simple_wall.png"), pygame.image.load("assets/terrain/full_wall.png")]
 
+GHOST_MAX_SPEED = 120
+PACMAN_MAX_SPEED = 160
+
 class Direction(Enum):
     UP = 0
     RIGHT = 1
@@ -161,14 +164,14 @@ class PlayableSprite:
         return (x_tile, y_tile)
 
     def decrease_speed(self):
-        self.speed -= 0.5
+        #self.speed -= 0.5
         if(self.speed < 0):
             self.speed = 0
 
     def increase_speed(self):
         self.speed += 5
-        if(self.speed > max_speed):
-            self.speed = max_speed
+        if(self.speed > self.max_speed):
+            self.speed = self.max_speed
 
     def queue_event(self, event):
         #print("Queuing event %s" % event)
@@ -387,6 +390,7 @@ class Ghost(PlayableSprite):
         self.vulnerability_counter = 0
         self.vulnerable_sprite_id = 0
         sprite_surface = (self.base_image.get_width() // 2, self.base_image.get_height() // 2)
+        self.max_speed = GHOST_MAX_SPEED
 
         sprite_base = pygame.Rect((0, 0), sprite_surface)
         self.up_sprite = self.base_image.subsurface(sprite_base)
@@ -442,6 +446,7 @@ class Pacman(PlayableSprite):
         width = self.base_image.get_width() // 2
         height = self.base_image.get_height() // 4
         sprite_surface = (width, height)
+        self.max_speed = PACMAN_MAX_SPEED
 
         sprite_base = pygame.Rect((0, 0), sprite_surface)
         self.left_anim.append(self.base_image.subsurface(sprite_base))
@@ -705,7 +710,6 @@ def main():
             pacman.play_death_animation(board)
             respawn(board)
 
-max_speed = 120
 tick_rate = 16.667
 
 UP = 0
