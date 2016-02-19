@@ -84,11 +84,11 @@ class Board:
         tile_surface = pygame.transform.scale(sprite, (self.tile_width, self.tile_height))
         self.screen.blit(tile_surface, (x * self.tile_width + self.start_x , self.tile_height * y))
 
-    def blit_score(self, score):
+    def blit_score(self):
         self.screen.blit(SCORE, (30, 30))
         self.screen.blit(SCORE_SURF, (SCORE.get_width() + 30, 30))
 
-    def blit_lives(self, lives):
+    def blit_lives(self):
         self.screen.blit(LIVES, (30, 60))
         self.screen.blit(LIVE_SURF, (LIVES.get_width() + 30, 60))
 
@@ -607,6 +607,8 @@ class Pacman(PlayableSprite):
                     if not ghost.is_vulnerable and ghost.alive and self.alive:
                         self.alive = False
                         self.lives -= 1
+                        global LIVE_SURF
+                        LIVE_SURF = font.render(str(self.lives), True, (255,255,255), (0,0,0))
                         time.sleep(1.3)
 
     def play_death_animation(self, board):
@@ -659,6 +661,8 @@ def main():
 
     global SCORE_SURF
     SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
+    global LIVE_SURF
+    LIVE_SURF = font.render("3", True, (255,255,255), (0,0,0))
     board = Board("tilemap.pacman");
     global SPEED_INCREASE
     global SPEED_DECREASE
@@ -776,7 +780,8 @@ def main():
         pacman.collision(board)
         pacman.eat_puck(board)
         pacman.blit(board)
-        board.blit_score(pacman.score)
+        board.blit_score()
+        board.blit_lives()
         pygame.display.flip()
         ntick = datetime.datetime.now()
         tckdiff = ntick - tick
