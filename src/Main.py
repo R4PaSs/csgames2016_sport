@@ -33,8 +33,8 @@ FULL_WALL = 20
 """
 Terrain_tiles = [pygame.image.load("assets/terrain/big_dot_sprite.png"), pygame.image.load("assets/terrain/blank_tile.png"), pygame.image.load("assets/terrain/dot_sprite.png"), pygame.image.load("assets/terrain/down_double_wall.png"), pygame.image.load("assets/terrain/down_left_angled_corner.png"), pygame.image.load("assets/terrain/down_left_smooth_corner.png"), pygame.image.load("assets/terrain/down_right_angled_corner.png"), pygame.image.load("assets/terrain/down_right_smooth_corner.png"), pygame.image.load("assets/terrain/down_simple_wall.png"), pygame.image.load("assets/terrain/ghost_spawn_barrier.png"), pygame.image.load("assets/terrain/left_double_wall.png"), pygame.image.load("assets/terrain/left_simple_wall.png"), pygame.image.load("assets/terrain/right_double_wall.png"), pygame.image.load("assets/terrain/right_simple_wall.png"), pygame.image.load("assets/terrain/up_double_wall.png"), pygame.image.load("assets/terrain/up_left_angled_corner.png"), pygame.image.load("assets/terrain/up_left_smooth_corner.png"), pygame.image.load("assets/terrain/up_right_angled_corner.png"), pygame.image.load("assets/terrain/up_right_smooth_corner.png"), pygame.image.load("assets/terrain/up_simple_wall.png"), pygame.image.load("assets/terrain/full_wall.png")]
 
-GHOST_MAX_SPEED = 140
-PACMAN_MAX_SPEED = 180
+GHOST_MAX_SPEED = 150
+PACMAN_MAX_SPEED = 200
 
 DEFAULT_X = 1280.0
 DEFAULT_Y = 800.0
@@ -68,8 +68,10 @@ class Board:
 
         self.start_x = (display_info.current_w - (28 * self.tile_width)) / 2
 
+        global SPEED_MULTIPLIER
         SPEED_MULTIPLIER = float(display_info.current_h) / DEFAULT_Y
-        print("Speed multiplier = %s", (SPEED_MULTIPLIER))
+
+        print("Speed multiplier = %s" % (SPEED_MULTIPLIER))
 
         #print("Screen info: width = %s, height = %s" % (display_info.current_w, display_info.current_h))
         #print("Tile width = %s, tile height = %s, start x = %s" %(self.tile_width, self.tile_height, self.start_x))
@@ -427,7 +429,7 @@ class Ghost(PlayableSprite):
 
     def update_speed(self):
         self.max_speed = int(float(GHOST_MAX_SPEED) * SPEED_MULTIPLIER)
-        print("Ghost max speed = %s", self.max_speed)
+        print("Ghost max speed = %s" % self.max_speed)
 
     def current_sprite(self):
         if(not self.alive):
@@ -500,7 +502,7 @@ class Pacman(PlayableSprite):
 
     def update_speed(self):
         self.max_speed = int(float(PACMAN_MAX_SPEED) * SPEED_MULTIPLIER)
-        print("Pacman max speed = %s", self.max_speed)
+        print("Pacman max speed = %s" % self.max_speed)
 
     def blit(self, board):
         self.remaining_time_frame -= 1
@@ -630,6 +632,13 @@ def main():
     pygame.init();
 
     board = Board("tilemap.pacman");
+    global SPEED_INCREASE
+    global SPEED_DECREASE
+    global SPEED_MULTIPLIER
+    SPEED_INCREASE = int(float(SPEED_INCREASE) * SPEED_MULTIPLIER)
+    SPEED_DECREASE *= SPEED_MULTIPLIER
+
+    print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
 
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -649,7 +658,7 @@ def main():
     vulnerability_timer = 0
     player_entities = [pacman, akabe, pinky, aosuke, guzuta]
     for i in player_entities:
-        i.update_speed
+        i.update_speed()
     player_mappings = [
             [pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
             [pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a],
