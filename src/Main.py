@@ -691,7 +691,13 @@ def main():
 
     respawn(board)
     vulnerability_timer = 0
-    player_entities = [pacman, akabe, pinky, aosuke, guzuta]
+    init_player_entities = [pacman, akabe, pinky, aosuke, guzuta]
+    player_entities = []
+    for i in range(5 - ROTATE, 5):
+        player_entities.append(init_player_entities[i])
+    for i in range(0, 5 - ROTATE):
+        player_entities.append(init_player_entities[i])
+
     for i in player_entities:
         i.reset()
         i.update_speed()
@@ -830,5 +836,9 @@ SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
 ghosts = [akabe, pinky, aosuke, guzuta]
 spawn_timers = [0, 300, 600, 900]
 
+ROTATE = 0
+
 while main() == 0:
+    ROTATE += 1
+    ROTATE %= 5
     continue
