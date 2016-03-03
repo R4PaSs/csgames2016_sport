@@ -188,7 +188,8 @@ class PlayableSprite:
         return (x_tile, y_tile)
 
     def decrease_speed(self):
-        #self.speed -= SPEED_DECREASE
+        self.speed += SPEED_DECREASE
+        print("Decreasing speed by %s" % SPEED_DECREASE)
         if(self.speed < 0):
             self.speed = 0
 
@@ -651,7 +652,26 @@ def parse_tilemap(content):
                 x += 1
     return tilemap
 
-def setup_input_for_joystick(player_id, board):
+def player_setup(player_id, board):
+    locfont = pygame.font.SysFont("Arial", 40)
+    player_spr = locfont.render("PRESS KEY FOR PLAYER ", True, (255,255,255), (0,0,0))
+    player_id_surf = locfont.render(str(player_id), True, (255,255,255), (0,0,0))
+    board.screen.blit(player_spr, (0,0))
+    board.screen.blit(player_id_surf, (player_spr.get_width() + 10,0))
+    pygame.display.flip()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    sys.exit(0)
+            if event.type == pygame.JOYBUTTONDOWN:
+                evt = event.joy
+                for e in pygame.event.get():
+                    pass
+                return evt
+        time.sleep(0.1)
+
+def setup_input_for_joystick(player_id, board, joystick_id):
     directions = ["UP......", "RIGHT", "DOWN.....", "LEFT......"]
     retdirs = []
     locfont = pygame.font.SysFont("Arial", 40)
@@ -672,7 +692,7 @@ def setup_input_for_joystick(player_id, board):
                     sys.exit(0)
             if event.type == pygame.JOYBUTTONDOWN:
                 print event
-                if event.joy != player_id:
+                if event.joy != joystick_id:
                     continue
                 retdirs.append(event.button)
                 i += 1
@@ -682,6 +702,8 @@ def setup_input_for_joystick(player_id, board):
                 board.screen.blit(btn_surf, (press_the.get_width() + 10, keysetup.get_height() + 10))
                 pygame.display.flip()
         time.sleep(0.1)
+    for e in pygame.event.get():
+        pass
     return retdirs
 
 def respawn(board):
@@ -702,35 +724,40 @@ def main():
     global LIVE_SURF
     LIVE_SURF = font.render("3", True, (255,255,255), (0,0,0))
     board = Board("tilemap.pacman");
+
+    print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
+
+    joy_map = [-1, -1, -1, -1, -1]
+    joy2play = [0, 0, 0, 0, 0]
+    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+    for i in joysticks:
+        i.init()
+    player = 0
+    for i in joysticks:
+        joy_id = player_setup(player, board)
+        print("Player % is joystick %", (player, joy_id))
+        joy2play[joy_id] = player
+        joy_map[joy_id] = setup_input_for_joystick(player, board, joy_id)
+        player += 1
+
+    print joy2play
+    print joy_map
+
+    board = Board("tilemap.pacman")
     global SPEED_INCREASE
     global SPEED_DECREASE
     global SPEED_MULTIPLIER
     SPEED_INCREASE = int(float(BASE_SPEED_INCREASE) * SPEED_MULTIPLIER)
     SPEED_DECREASE = BASE_SPEED_DECREASE * SPEED_MULTIPLIER
 
-    print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
-
-    joy_map = []
-    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
-    for i in joysticks:
-        i.init()
-    player = 0
-    for i in joysticks:
-        joy_map.append(setup_input_for_joystick(player, board))
-        player += 1
-
-    board = Board("tilemap.pacman")
-
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('0.0.0.0', 4444))
     server.listen(1)
-    #clients = []
-    #for i in range(0, 1):
-        #clients.append(server.accept()[0])
+    clients = []
+    for i in range(0, 1):
+        clients.append(server.accept()[0])
     server.close()
-
-    print joysticks
 
     respawn(board)
     vulnerability_timer = 0
@@ -787,8 +814,8 @@ def main():
             if(board.vulnerability_timer == 0):
                 for i in ghosts:
                     i.is_vulnerable = False
-        #rsocks, _, _ = select.select(clients, [], [], 0)
-        rsocks = []
+        rsocks, _, _ = select.select(clients, [], [], 0)
+        #rsocks = []
         for i in rsocks:
             idx = clients.index(i)
             msg = clients[idx].recv(1024)
@@ -798,8 +825,6 @@ def main():
                 idx = int(cmd)
                 player_entities[idx].increase_speed()
         for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                print event
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     return 1
@@ -807,20 +832,22 @@ def main():
                     for j in range(0, 4):
                         if event.key == player_mappings[i][j]:
                             if(player_entities[i].alive):
-                                player_entities[i].increase_speed()
+                                #player_entities[i].increase_speed()
                                 player_entities[i].queue_event(j)
             if event.type == pygame.JOYBUTTONDOWN:
-                print event
-                player = int(event.joy)
+                player = joy2play[event.joy]
                 btn = event.button
+                print("Player %s, event.joy = %s, event.button = %s" % (player, event.joy, event.button))
                 direction = -1
-                for i in joy_map[player]:
-                    if btn == i:
+                for i in range(0, 4):
+                    if btn == joy_map[event.joy][i]:
                         direction = i
+                        break
                 if direction == -1:
+                    print "Unknown"
                     continue
-                player_entities[player].increase_speed()
-                #print("Queuing direction %s for player %s" % (direction, player))
+                #player_entities[player].#increase_speed()
+                print("Queuing direction %s for player %s" % (direction, player))
                 player_entities[player].queue_event(direction)
         check_alive = []
         for i in range(0, 4):
