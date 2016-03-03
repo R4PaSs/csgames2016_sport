@@ -6,6 +6,7 @@ import math
 import datetime
 import time
 from collections import deque
+import sys
 
 """
 Tilemap:
@@ -650,7 +651,41 @@ def parse_tilemap(content):
                 x += 1
     return tilemap
 
+def setup_input_for_joystick(player_id, board):
+    directions = ["UP......", "RIGHT", "DOWN.....", "LEFT......"]
+    retdirs = []
+    locfont = pygame.font.SysFont("Arial", 40)
+    keysetup = locfont.render("KEY SETUP - PLAYER ", True, (255,255,255), (0,0,0))
+    pid_surface = locfont.render(str(player_id), True, (255,255,255), (0,0,0))
+    press_the = locfont.render("PRESS BUTTON ", True, (255,255,255), (0,0,0))
+    i = 0
+    btn_surf = locfont.render(directions[i], True, (255, 255, 255), (0,0,0))
+    board.screen.blit(keysetup, (0, 0))
+    board.screen.blit(pid_surface, (keysetup.get_width() + 10, 0))
+    board.screen.blit(press_the, (0, keysetup.get_height() + 10))
+    board.screen.blit(btn_surf, (press_the.get_width() + 10, keysetup.get_height() + 10))
+    pygame.display.flip()
+    while i < len(directions):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    sys.exit(0)
+            if event.type == pygame.JOYBUTTONDOWN:
+                print event
+                if event.joy != player_id:
+                    continue
+                retdirs.append(event.button)
+                i += 1
+                if i >= len(directions):
+                    break
+                btn_surf = locfont.render(directions[i], True, (255, 255, 255), (0,0,0))
+                board.screen.blit(btn_surf, (press_the.get_width() + 10, keysetup.get_height() + 10))
+                pygame.display.flip()
+        time.sleep(0.1)
+    return retdirs
+
 def respawn(board):
+    global spawn_timers
     spawn_timers = [0, 300, 600, 900]
     board.vulnerability_timer = 0
     akabe.spawn(board, 13, 10)
@@ -675,6 +710,17 @@ def main():
 
     print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
 
+    joy_map = []
+    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+    for i in joysticks:
+        i.init()
+    player = 0
+    for i in joysticks:
+        joy_map.append(setup_input_for_joystick(player, board))
+        player += 1
+
+    board = Board("tilemap.pacman")
+
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('0.0.0.0', 4444))
@@ -684,9 +730,6 @@ def main():
         #clients.append(server.accept()[0])
     server.close()
 
-    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
-    for i in joysticks:
-        i.init()
     print joysticks
 
     respawn(board)
@@ -708,7 +751,6 @@ def main():
             [pygame.K_i, pygame.K_l, pygame.K_k, pygame.K_j],
             [pygame.K_c, pygame.K_v, pygame.K_b, pygame.K_n]
             ]
-    joystick_map = [-1, -1, -1, -1, -1, -1, -1, -1 ,-1 ,-1 ,-1 ,-1 , 0, 1, 2, 3]
 
     pygame.display.flip()
 
@@ -756,6 +798,8 @@ def main():
                 idx = int(cmd)
                 player_entities[idx].increase_speed()
         for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                print event
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     return 1
@@ -766,9 +810,15 @@ def main():
                                 player_entities[i].increase_speed()
                                 player_entities[i].queue_event(j)
             if event.type == pygame.JOYBUTTONDOWN:
-                #print event
-                direction = joystick_map[int(event.button)]
+                print event
                 player = int(event.joy)
+                btn = event.button
+                direction = -1
+                for i in joy_map[player]:
+                    if btn == i:
+                        direction = i
+                if direction == -1:
+                    continue
                 player_entities[player].increase_speed()
                 #print("Queuing direction %s for player %s" % (direction, player))
                 player_entities[player].queue_event(direction)
