@@ -7,6 +7,7 @@ import datetime
 import time
 from collections import deque
 import sys
+import json
 
 """
 Tilemap:
@@ -685,6 +686,7 @@ def setup_input_for_joystick(player_id, board, joystick_id):
     board.screen.blit(press_the, (0, keysetup.get_height() + 10))
     board.screen.blit(btn_surf, (press_the.get_width() + 10, keysetup.get_height() + 10))
     pygame.display.flip()
+    last_read = -1
     while i < len(directions):
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
@@ -694,6 +696,9 @@ def setup_input_for_joystick(player_id, board, joystick_id):
                 print event
                 if event.joy != joystick_id:
                     continue
+                if event.button == last_read:
+                    continue
+                last_read = event.button
                 retdirs.append(event.button)
                 i += 1
                 if i >= len(directions):
@@ -717,47 +722,27 @@ def respawn(board):
     pacman.spawn(board, 13, 22)
 
 def main():
-    pygame.init();
-
     global SCORE_SURF
     SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
     global LIVE_SURF
     LIVE_SURF = font.render("3", True, (255,255,255), (0,0,0))
-    board = Board("tilemap.pacman");
 
-    print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
-
-    joy_map = [-1, -1, -1, -1, -1]
-    joy2play = [0, 0, 0, 0, 0]
-    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
-    for i in joysticks:
-        i.init()
-    player = 0
-    for i in joysticks:
-        joy_id = player_setup(player, board)
-        print("Player % is joystick %", (player, joy_id))
-        joy2play[joy_id] = player
-        joy_map[joy_id] = setup_input_for_joystick(player, board, joy_id)
-        player += 1
-
-    print joy2play
-    print joy_map
-
-    board = Board("tilemap.pacman")
     global SPEED_INCREASE
     global SPEED_DECREASE
     global SPEED_MULTIPLIER
     SPEED_INCREASE = int(float(BASE_SPEED_INCREASE) * SPEED_MULTIPLIER)
     SPEED_DECREASE = BASE_SPEED_DECREASE * SPEED_MULTIPLIER
+    print("Speed increase = %s, speed decrease = %s" % (SPEED_INCREASE, SPEED_DECREASE))
 
-    server = socket.socket()
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('0.0.0.0', 4444))
-    server.listen(1)
-    clients = []
-    for i in range(0, 1):
-        clients.append(server.accept()[0])
-    server.close()
+    #global NEED_INPUTS
+    global joy_map
+    global joy2play
+    global clients
+
+    print joy2play
+    print joy_map
+
+    board = Board("tilemap.pacman")
 
     respawn(board)
     vulnerability_timer = 0
@@ -881,6 +866,18 @@ def main():
             pacman.play_death_animation(board)
             respawn(board)
 
+args = sys.argv
+rd_inputs = False
+if len(args) > 1:
+    with open(args[1], 'r') as inputs:
+        str_json = inputs.read()
+        data = json.loads(str_json)
+        joy2play = data['joy2play']
+        joy_map = data['joy_map']
+    rd_inputs = True
+    print joy2play
+    print joy_map
+
 tick_rate = 16.667
 
 UP = 0
@@ -893,6 +890,7 @@ NOM = 1
 PHANTOM_NOM = 2
 PACMAN_DEATH = 3
 
+pygame.init();
 pygame.font.init()
 pygame.joystick.init()
 font = pygame.font.SysFont("Arial", 20)
@@ -912,6 +910,42 @@ SCORE_SURF = font.render("0", True, (255,255,255), (0,0,0))
 
 ghosts = [akabe, pinky, aosuke, guzuta]
 spawn_timers = [0, 300, 600, 900]
+
+# Just for first blit
+board = Board("tilemap.pacman");
+
+if not rd_inputs:
+    joy_map = [-1, -1, -1, -1, -1]
+    joy2play = [0, 0, 0, 0, 0]
+
+    joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+    for i in joysticks:
+        i.init()
+    player = 0
+    for i in joysticks:
+        joy_id = player_setup(player, board)
+        print("Player %s is joystick %s" % (player, joy_id))
+        joy2play[joy_id] = player
+        joy_map[joy_id] = setup_input_for_joystick(player, board, joy_id)
+        player += 1
+
+    with open("inputs.json", 'w') as out_fl:
+        out_fl.write("{\"joy2play\":")
+        out_fl.write(str(joy2play))
+        out_fl.write(",\"joy_map\":")
+        out_fl.write(str(joy_map))
+        out_fl.write("}")
+
+server = socket.socket()
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(('0.0.0.0', 4444))
+server.listen(1)
+clients = []
+for i in range(0, 1):
+    clients.append(server.accept()[0])
+server.close()
+
+NEED_INPUTS = False
 
 ROTATE = 0
 
