@@ -42,10 +42,10 @@ DEFAULT_X = 1280.0
 DEFAULT_Y = 800.0
 SPEED_MULTIPLIER = 1.0
 
-BASE_SPEED_INCREASE = 10
-BASE_SPEED_DECREASE = -.3
-SPEED_INCREASE = 10
-SPEED_DECREASE = -.3
+BASE_SPEED_INCREASE = 20
+BASE_SPEED_DECREASE = -2.5
+SPEED_INCREASE = 20
+SPEED_DECREASE = -2.5
 
 class Direction(Enum):
     UP = 0
@@ -196,6 +196,7 @@ class PlayableSprite:
 
     def increase_speed(self):
         self.speed += SPEED_INCREASE
+        print("Increasing speed by %s" % SPEED_INCREASE)
         if(self.speed > self.max_speed):
             self.speed = self.max_speed
 
